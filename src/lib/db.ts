@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import type { personData, Preferences, Role } from './types';
+import type { PersonData, Preferences, Role } from './types';
 
 const db = new Database('app.db');
 
@@ -41,18 +41,26 @@ db.run(`
     )
 `);
 
-export async function getPeople(): Promise<personData[]> {
-	return db.prepare('SELECT * FROM people WHERE attending_event = true').all() as personData[];
+export async function getPeople(): Promise<PersonData[]> {
+	return db.prepare('SELECT * FROM people WHERE attending_event = true').all() as PersonData[];
 }
 
-export async function addPerson(data: personData) {
+export async function addPerson(data: PersonData) {
 	return db
 		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?)')
 		.run(data.firstName, data.lastName, data.attendingEvent, JSON.stringify(data.preferences));
 }
 
+export async function getPerson(personID: number): Promise<PersonData> {
+	return db.prepare('SELECT * FROM people WHERE id = ?').get(personID) as PersonData;
+}
+
+export async function updatePreferences(personID: number, preferences: Preferences) {
+	return db.prepare('UPDATE people SET preferences = ? WHERE id = ?').run(preferences, personID);
+}
+
 export async function setPersonSchedule(personID: number, schedule: Role[]) {
-	await db
+	return db
 		.prepare(
 			`INSERT OR REPLACE INTO schedule VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 		)
@@ -65,4 +73,24 @@ export async function getSchedule() {
 
 export async function getPersonSchedule(personID: number) {
 	return db.prepare(`SELECT * FROM schedule WHERE personID = ?`).get(personID);
+}
+
+export async function getCurrentSchedule() {
+	const slot = msToSlot(Date.now());
+	return db.prepare(`SELECT ? FROM schedule`).all(slot);
+}
+
+function msToSlot(ms: number): string {
+	const date = new Date(ms);
+	const hours = date.getHours();
+	const minutes = date.getMinutes() < 30 ? 0 : 30;
+
+	const start = `${String(hours).padStart(2, '0')}${String(minutes).padStart(2, '0')}`;
+	const endMinutes = minutes + 30;
+	const end =
+		endMinutes === 60
+			? `${String(hours + 1).padStart(2, '0')}00`
+			: `${String(hours).padStart(2, '0')}${String(endMinutes).padStart(2, '0')}`;
+
+	return `${start}-${end}`;
 }

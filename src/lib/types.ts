@@ -14,7 +14,7 @@ export type Preferences = {
 	Journalism: boolean;
 };
 
-export type personData = {
+export type PersonData = {
 	id: number;
 	firstName: string;
 	lastName: string;
