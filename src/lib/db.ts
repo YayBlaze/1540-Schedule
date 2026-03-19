@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite';
 import type { PersonData, Preferences, Role } from './types';
+import { msToSlot } from './schedule';
 
 const db = new Database('app.db');
 
@@ -38,6 +39,13 @@ db.run(`
         "1630-1700" TEXT,
         "1700-1730" TEXT,
         "1730-1800" TEXT
+    )
+`);
+
+db.run(`
+    CREATE TABLE IF NOT EXISTS sessions (
+        session_id CHAR(36),
+        session_expire LONG
     )
 `);
 
@@ -80,17 +88,17 @@ export async function getCurrentSchedule() {
 	return db.prepare(`SELECT ? FROM schedule`).all(slot);
 }
 
-function msToSlot(ms: number): string {
-	const date = new Date(ms);
-	const hours = date.getHours();
-	const minutes = date.getMinutes() < 30 ? 0 : 30;
+export async function isValidSession(sessionID: string) {
+	const res = (await db
+		.prepare('SELECT session_expire FROM sessions WHERE session_id = ?')
+		.get(sessionID)) as number;
+	if (res && res < Date.now()) return true;
+	else return false;
+}
 
-	const start = `${String(hours).padStart(2, '0')}${String(minutes).padStart(2, '0')}`;
-	const endMinutes = minutes + 30;
-	const end =
-		endMinutes === 60
-			? `${String(hours + 1).padStart(2, '0')}00`
-			: `${String(hours).padStart(2, '0')}${String(endMinutes).padStart(2, '0')}`;
-
-	return `${start}-${end}`;
+export async function newSession() {
+	const sessionID = Bun.randomUUIDv7();
+	const sessionExpire = Date.now() + 60 * 60 * 1000; // expires 1hr after creation
+	await db.prepare('INSERT INTO sessions VALUES (?, ?)').run(sessionID, sessionExpire);
+	return sessionID;
 }
