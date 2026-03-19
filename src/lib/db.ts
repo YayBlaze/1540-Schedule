@@ -92,8 +92,13 @@ export async function isValidSession(sessionID: string) {
 	const res = (await db
 		.prepare('SELECT session_expire FROM sessions WHERE session_id = ?')
 		.get(sessionID)) as number;
-	if (res && res < Date.now()) return true;
-	else return false;
+	if (res) {
+		if (res < Date.now()) return true;
+		else {
+			await db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionID);
+			return false;
+		}
+	} else return false;
 }
 
 export async function newSession() {
