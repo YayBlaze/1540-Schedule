@@ -13,3 +13,11 @@ export type Preferences = {
 	doStrategy: boolean;
 	Journalism: boolean;
 };
+
+export type personData = {
+	id: number;
+	firstName: string;
+	lastName: string;
+	attendingEvent: boolean;
+	preferences: Preferences;
+};

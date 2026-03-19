@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import type { Preferences, Role } from './types';
+import type { personData, Preferences, Role } from './types';
 
 const db = new Database('app.db');
 
@@ -41,19 +41,14 @@ db.run(`
     )
 `);
 
-export async function getPeople() {
-	return db.prepare('SELECT * FROM people WHERE attending_event = true').all();
+export async function getPeople(): Promise<personData[]> {
+	return db.prepare('SELECT * FROM people WHERE attending_event = true').all() as personData[];
 }
 
-export async function addPerson(data: {
-	first_name: string;
-	last_name: string;
-	attending_event: boolean;
-	preferences: Preferences;
-}) {
+export async function addPerson(data: personData) {
 	return db
 		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?)')
-		.run(data.first_name, data.last_name, data.attending_event, JSON.stringify(data.preferences));
+		.run(data.firstName, data.lastName, data.attendingEvent, JSON.stringify(data.preferences));
 }
 
 export async function setPersonSchedule(personID: number, schedule: Role[]) {
