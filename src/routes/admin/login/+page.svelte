@@ -15,7 +15,7 @@
 		<input name="pass" type="password" bind:value={pass} placeholder="Password" />
 		<button
 			id="submit"
-			class="m-auto rounded-[5px] border-2 border-solid border-(--white) bg-(--grey) p-[3%] text-[1.5rem] text-(--white)"
+			class="m-auto rounded-[5px] border-2 border-solid border-(--white) bg-(--black2) p-[3%] text-[1.5rem] text-(--white)"
 			>Login</button
 		>
 	</form>

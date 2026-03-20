@@ -1,22 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
 :root {
 	--black: #1c1c1c;
-	--grey: #3c3c3c;
-	--white: #fbfbfb;
-	--light-grey: #a7a7a7;
-	--red: #ee2c2c;
-	--yellow: #e3e36a;
-	--blue: #6495ed;
-	--green: #a9e5bb;
-	--purple: #fab2ea;
+	--black2: #252525;
+	--white: #e8f3f1;
+	--grey: #a7a7a7;
+	--yellow: #e6c77d;
+	--green1: #a5f6de;
+	--green2: #98b0a8;
+	--green3: #4d635c;
+	--purple1: #eedeff;
+	--purple2: #e2baff;
+	--purple3: #b6a7dc;
 }
 
 body {
 	background-color: var(--black);
-}
-
-* {
 	color: var(--white);
+	font-family: 'Archivo Black', sans-serif;
+	font-weight: 400;
+	font-style: normal;
 }
