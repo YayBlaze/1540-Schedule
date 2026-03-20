@@ -6,7 +6,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const sessionID = event.cookies.get('session');
 	if (!sessionID) return redirect(303, '/admin/login');
 	event.locals.sessionID = sessionID;
-	const isValid = isValidSession(sessionID);
+	const isValid = await isValidSession(sessionID);
 	if (!isValid) return redirect(303, '/admin/login');
 	return await resolve(event);
 };

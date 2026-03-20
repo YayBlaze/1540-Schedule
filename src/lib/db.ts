@@ -88,12 +88,13 @@ export async function getCurrentSchedule() {
 	return db.prepare(`SELECT ? FROM schedule`).all(slot);
 }
 
-export async function isValidSession(sessionID: string) {
+export async function isValidSession(sessionID: string): Promise<boolean> {
 	const res = (await db
 		.prepare('SELECT session_expire FROM sessions WHERE session_id = ?')
-		.get(sessionID)) as number;
-	if (res) {
-		if (res < Date.now()) return true;
+		.get(sessionID)) as { session_expire: number };
+	const expires = res.session_expire ?? null;
+	if (expires) {
+		if (expires > Date.now()) return true;
 		else {
 			await db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionID);
 			return false;
@@ -101,7 +102,7 @@ export async function isValidSession(sessionID: string) {
 	} else return false;
 }
 
-export async function newSession() {
+export async function newSession(): Promise<string> {
 	const sessionID = Bun.randomUUIDv7();
 	const sessionExpire = Date.now() + 60 * 60 * 1000; // expires 1hr after creation
 	await db.prepare('INSERT INTO sessions VALUES (?, ?)').run(sessionID, sessionExpire);
