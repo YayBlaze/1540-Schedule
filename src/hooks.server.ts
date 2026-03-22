@@ -1,5 +1,9 @@
-import { isValidSession } from '$lib/db';
-import { redirect, type Handle } from '@sveltejs/kit';
+import { initDB, isValidSession } from '$lib/db';
+import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
+
+export const init: ServerInit = async () => {
+	await initDB();
+};
 
 export const handle: Handle = async ({ event, resolve }) => {
 	if (event.url.pathname != '/admin') return await resolve(event);
