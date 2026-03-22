@@ -1,6 +1,5 @@
 import { Database } from 'bun:sqlite';
 import type { PersonData, Preferences } from './types';
-import { msToSlot } from './schedule';
 
 let db: any = null;
 
@@ -22,26 +21,27 @@ export async function initDB() {
 	db.run(`
 		CREATE TABLE IF NOT EXISTS schedule (
 			personID INT PRIMARY KEY,
-			"0800-0830" TEXT,
-			"0830-0900" TEXT,
-			"0900-0930" TEXT,
-			"0930-1000" TEXT,
-			"1000-1030" TEXT,
-			"1030-1100" TEXT,
-			"1100-1130" TEXT,
-			"1130-1200" TEXT,
-			"1200-1230" TEXT,
-			"1230-1300" TEXT,
-			"1300-1330" TEXT,
-			"1330-1400" TEXT,
-			"1400-1430" TEXT,
-			"1430-1500" TEXT,
-			"1500-1530" TEXT,
-			"1530-1600" TEXT,
-			"1600-1630" TEXT,
-			"1630-1700" TEXT,
-			"1700-1730" TEXT,
-			"1730-1800" TEXT
+			slot1 TEXT,
+			slot2 TEXT,
+			slot3 TEXT,
+			slot4 TEXT,
+			slot5 TEXT,
+			slot6 TEXT,
+			slot7 TEXT,
+			slot8 TEXT,
+			slot9 TEXT,
+			slot10 TEXT,
+			slot11 TEXT,
+		)
+	`);
+
+	db.run(`
+		CREATE TABLE IF NOT EXISTS slots (
+			slotNumber INT PRIMARY KEY,
+			startTimestamp LONG,
+			endTimestamp LONG,
+			startLabel TEXT,
+			endLabel TEXT
 		)
 	`);
 
@@ -73,9 +73,7 @@ export async function updatePreferences(personID: number, preferences: Preferenc
 
 export async function setPersonSchedule(personID: number, schedule: string[]) {
 	return db
-		.prepare(
-			`INSERT OR REPLACE INTO schedule VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		)
+		.prepare(`INSERT OR REPLACE INTO schedule VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 		.run(personID, ...schedule);
 }
 
@@ -88,11 +86,11 @@ export async function getPersonSchedule(personID: number) {
 }
 
 export async function getCurrentSchedule() {
-	const slot = msToSlot(Date.now());
+	const slot = await msToSlot(Date.now());
 	const res = db.prepare(`SELECT * FROM schedule`).all();
 	let final = [];
 	for (let person of res) {
-		let role = person[slot];
+		let role = person[slot.num];
 		final.push({ personID: person.personID, role });
 	}
 	return final;
@@ -102,7 +100,7 @@ export async function isValidSession(sessionID: string): Promise<boolean> {
 	const res = (await db
 		.prepare('SELECT session_expire FROM sessions WHERE session_id = ?')
 		.get(sessionID)) as { session_expire: number };
-	const expires = res.session_expire ?? null;
+	const expires = res.session_expire;
 	if (expires) {
 		if (expires > Date.now()) return true;
 		else {
@@ -127,4 +125,15 @@ export async function formatName(personID: number) {
 	} else {
 		return data.firstName;
 	}
+}
+
+export async function msToSlot(ms: number) {
+	const slots = await db.prepare('SELECT * FROM slots').all();
+	let num;
+	for (let slot of slots) {
+		if (slot.startTimestamp < ms && slot.endTimestamp > ms) {
+			num = slot.slotNumber;
+		}
+	}
+	return { num: `slot${num}`, label: `${slots.startLabel}-${slots.endLabel}` };
 }
