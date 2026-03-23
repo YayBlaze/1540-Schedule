@@ -7,9 +7,29 @@ export type Preferences = {
 };
 
 export type PersonData = {
-	id: number;
+	uuid: string;
 	firstName: string;
 	lastName: string;
+	displayName: string;
 	attendingEvent: boolean;
+	rolePool: RolePool;
 	preferences: Preferences;
 };
+
+export enum Role {
+	PitLead,
+	Pits,
+	Drive,
+	Scouting,
+	Strategy,
+	Media,
+	Journalism
+}
+
+export enum RolePool {
+	None,
+	PitLead,
+	Drive,
+	Scouting_ONLY,
+	Strategy_ONLY
+}
