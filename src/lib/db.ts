@@ -100,10 +100,12 @@ export async function updateRolePool(personID: string, rolePool: RolePool) {
 		.run(RolePool[rolePool], personID);
 }
 
-export async function updatePersonStatus(personID: string, attendingEvent: boolean) {
+export async function changePersonStatus(personID: string) {
+	const res = db.prepare('SELECT attendingEvent FROM people WHERE uuid = ?').get(personID);
+	let attendingEvent: boolean = res.attendingEvent;
 	return db
-		.prepare('UPDATE people SET attending_event = ? WHERE uuid = ?')
-		.run(personID, attendingEvent);
+		.prepare('UPDATE people SET attendingEvent = ? WHERE uuid = ?')
+		.run(!attendingEvent, personID);
 }
 
 export async function setPersonSchedule(personID: string, schedule: Role[]) {
