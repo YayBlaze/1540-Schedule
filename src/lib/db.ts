@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import { Role, RolePool, type PersonData, type Preferences } from './types';
+import { Role, RolePool, type PersonData, type personSchedule, type Preferences } from './types';
 
 let db: any = null;
 
@@ -56,7 +56,7 @@ export async function initDB() {
 }
 
 export async function getPeople(): Promise<PersonData[]> {
-	const res = db.prepare('SELECT * FROM people').all() as PersonData[];
+	const res = db.prepare('SELECT * FROM people ORDER BY firstName').all() as PersonData[];
 	return res.map((data) => {
 		let value: unknown = data.rolePool;
 		return { ...data, rolePool: RolePool[value as keyof typeof RolePool] };
@@ -71,71 +71,61 @@ export async function addPerson(data: { firstName: string; lastName: string }) {
 			data.firstName,
 			data.lastName,
 			data.firstName,
-			false,
+			true,
 			RolePool[RolePool.None],
 			JSON.stringify({})
 		);
 	await formatName(data.firstName, data.lastName);
 }
 
-export async function removePerson(personID: string) {
-	const data = await getPerson(personID);
-	await db.prepare('DELETE FROM people WHERE uuid = ?').run(personID);
+export async function removePerson(personUUID: string) {
+	const data = await getPerson(personUUID);
+	await db.prepare('DELETE FROM people WHERE uuid = ?').run(personUUID);
 	await formatName(data.firstName, data.lastName);
 }
 
-export async function getPerson(personID: string): Promise<PersonData> {
-	const res = db.prepare('SELECT * FROM people WHERE uuid = ?').get(personID) as PersonData;
+export async function getPerson(personUUID: string): Promise<PersonData> {
+	const res = db.prepare('SELECT * FROM people WHERE uuid = ?').get(personUUID) as PersonData;
 	let value: unknown = res.rolePool;
 	return { ...res, rolePool: RolePool[value as keyof typeof RolePool] };
 }
 
-export async function updatePreferences(personID: string, preferences: Preferences) {
-	return db.prepare('UPDATE people SET preferences = ? WHERE uuid = ?').run(preferences, personID);
+export async function updatePreferences(personUUID: string, preferences: Preferences) {
+	return db
+		.prepare('UPDATE people SET preferences = ? WHERE uuid = ?')
+		.run(preferences, personUUID);
 }
 
-export async function updateRolePool(personID: string, rolePool: RolePool) {
+export async function updateRolePool(personUUID: string, rolePool: RolePool) {
 	return db
 		.prepare('UPDATE people SET rolePool = ? WHERE uuid = ?')
-		.run(RolePool[rolePool], personID);
+		.run(RolePool[rolePool], personUUID);
 }
 
-export async function changePersonStatus(personID: string) {
-	const res = db.prepare('SELECT attendingEvent FROM people WHERE uuid = ?').get(personID);
+export async function changePersonStatus(personUUID: string) {
+	const res = db.prepare('SELECT attendingEvent FROM people WHERE uuid = ?').get(personUUID);
 	let attendingEvent: boolean = res.attendingEvent;
 	return db
 		.prepare('UPDATE people SET attendingEvent = ? WHERE uuid = ?')
-		.run(!attendingEvent, personID);
+		.run(!attendingEvent, personUUID);
 }
 
-export async function setPersonSchedule(personID: string, schedule: Role[]) {
+export async function setPersonSchedule(personUUID: string, schedule: Role[]) {
 	const roleStrings = schedule.map((role) => Role[role]);
 	return db
-		.prepare(`INSERT OR REPLACE INTO schedule VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-		.run(personID, ...roleStrings);
+		.prepare(`INSERT OR REPLACE INTO schedule VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		.run(personUUID, ...roleStrings);
 }
 
 export async function getSchedule() {
-	const res = db.prepare(`SELECT * FROM schedule`).all() as Record<string, any>[];
-	return res.map((row) => {
-		const mapped: Record<string, any> = {};
-		for (const key in row) {
-			mapped[key] = key === 'personID' ? row[key] : toRole(row[key]);
-		}
-		return mapped;
-	});
+	const res = db.prepare(`SELECT * FROM schedule`).all() as Record<string, string>[];
+	return res.map((row) => ({ ...row })) as unknown as personSchedule[];
 }
 
-export async function getPersonSchedule(personID: string) {
-	const res = db.prepare(`SELECT * FROM schedule where personID = ?`).get(personID) as Record<
-		string,
-		any
-	>;
-	const mapped: Record<string, any> = {};
-	for (const key in res) {
-		mapped[key] = key === 'personID' ? res[key] : toRole(res[key]);
-	}
-	return mapped;
+export async function getPersonSchedule(personUUID: string) {
+	return db
+		.prepare(`SELECT * FROM schedule WHERE personUUID = ?`)
+		.get(personUUID) as personSchedule;
 }
 
 export async function getCurrentSchedule() {
@@ -143,10 +133,36 @@ export async function getCurrentSchedule() {
 	const res = db.prepare(`SELECT * FROM schedule`).all();
 	let final = [];
 	for (let person of res) {
-		let role: string = person[slot.num];
-		final.push({ personID: person.personID, role: toRole(role) });
+		let role: unknown = person[slot.num];
+		final.push({ personUUID: person.personUUID, role: role as Role });
 	}
 	return final;
+}
+
+export async function setSlot(data: {
+	id: number;
+	startTimestamp: number;
+	endTimestamp: number;
+	startLabel: string;
+	endLabel: string;
+}) {
+	db.prepare('INSERT OR REPLACE INTO slots VALUES (?, ?, ?, ?, ?)').run(
+		data.id,
+		data.startTimestamp,
+		data.endTimestamp,
+		data.startLabel,
+		data.endLabel
+	);
+}
+
+export async function getSlots() {
+	return db.prepare('SELECT * FROM slots').all() as {
+		id: number;
+		startTimestamp: number;
+		endTimestamp: number;
+		startLabel: string;
+		endLabel: string;
+	}[];
 }
 
 export async function isValidSession(sessionID: string): Promise<boolean> {
@@ -194,8 +210,4 @@ export async function msToSlot(ms: number) {
 		}
 	}
 	return { num: `slot${num}`, label: `${slots.startLabel}-${slots.endLabel}` };
-}
-
-function toRole(value: string): Role {
-	return Role[value as keyof typeof Role];
 }

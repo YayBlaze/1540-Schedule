@@ -3,6 +3,7 @@ import { fail, type Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { RolePool } from '$lib/types';
 import { addPerson } from '$lib/db';
+import { generateSchedule } from '$lib/schedule';
 
 export const load: PageServerLoad = async () => {
 	const people = await getPeople();
@@ -10,6 +11,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions = {
+	generate: async () => await generateSchedule(),
 	assign: async ({ request }) => {
 		const data = await request.formData();
 		const uuid = data.get('person')?.toString();

@@ -1,8 +1,10 @@
 import { initDB, isValidSession } from '$lib/db';
+import { fetchData } from '$lib/nexus';
 import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 
 export const init: ServerInit = async () => {
 	await initDB();
+	await fetchData();
 };
 
 export const handle: Handle = async ({ event, resolve }) => {

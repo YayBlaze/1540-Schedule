@@ -6,11 +6,11 @@ export const GET: RequestHandler = async () => {
 	const schedule = await getCurrentSchedule();
 	let scouting = [];
 	for (const person of schedule) {
-		if (person.role == Role.Scouting) scouting.push(person.personID);
+		if (person.role == Role.Scouting) scouting.push(person.personUUID);
 	}
 	let names = [];
-	for (const personID of scouting) {
-		const person = await getPerson(personID);
+	for (const personUUID of scouting) {
+		const person = await getPerson(personUUID);
 		names.push(person.displayName);
 	}
 	return json(names);

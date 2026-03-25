@@ -17,6 +17,12 @@
 </nav>
 
 <div class="flex w-full flex-col justify-around gap-5 p-3">
+	<div class="item flex items-center justify-between">
+		<h1 class="text-xl">Generate Schedule</h1>
+		<form action="?/generate" method="post">
+			<button class="button-primary" id="submit">Generate</button>
+		</form>
+	</div>
 	<div class="m-auto flex w-[95%] justify-around gap-5">
 		<div class="item h-80">
 			<h1 class="text-xl">People</h1>
@@ -75,7 +81,7 @@
 					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
 				>
 					{#each people as person}
-						{#if person.attendingEvent}
+						{#if person.attendingEvent && person.rolePool == RolePool.None}
 							<option value={person.uuid}>{person.displayName}</option>
 						{/if}
 					{/each}
@@ -86,12 +92,16 @@
 				>
 					<option value={RolePool.PitLead}>Pit Lead</option>
 					<option value={RolePool.Drive}>Drive Team</option>
-					<option value={RolePool.Scouting_ONLY}>Scouting Only</option>
-					<option value={RolePool.Strategy_ONLY}>Strategy Only</option>
+					<option value={RolePool.ONLY_Scouting}>Scouting Only</option>
+					<option value={RolePool.ONLY_Strategy}>Strategy Only</option>
+					<option value={RolePool.NO_Scouting}>No Scouting</option>
 				</select>
 				<button id="submit" class="button-primary">Assign</button>
 			</form>
 			<div class="max-h-47 overflow-scroll">
+				{#if people.filter((person) => person.rolePool != null && person.rolePool != RolePool.None && person.attendingEvent).length < 1}
+					<h1 class="p-2 text-center text-xl">No Exceptions</h1>
+				{/if}
 				{#each people as person}
 					{#if person.rolePool != null && person.rolePool != RolePool.None && person.attendingEvent}
 						<div
@@ -115,67 +125,25 @@
 		<div class="flex items-center justify-around gap-2">
 			<input
 				type="text"
-				placeholder="Day"
+				placeholder="Event Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
 			/>
 			<input
 				type="text"
-				placeholder="08:30"
+				placeholder="Lunch Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
 			/>
 			<input
 				type="text"
-				placeholder="19:30"
+				placeholder="Lunch End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
 			/>
 			<input
 				type="text"
-				placeholder="13:00"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
-			/>
-			<input
-				type="text"
-				placeholder="14:00"
+				placeholder="Event End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
 			/>
 			<button class="button-primary">Save</button>
-		</div>
-	</div>
-
-	<div class="item">
-		<h1 class="text-xl">Exceptions</h1>
-		<p class="text-md pb-1 text-(--grey)">
-			Track people with constraints like no scouting, day-only, or blocked times.
-		</p>
-		<div class="flex items-center justify-around gap-2">
-			<form
-				action="/?addException"
-				method="post"
-				class="flex h-fit w-full items-center justify-around pb-2"
-			>
-				<select
-					name="person"
-					class="h-fit w-[30%] rounded-md border border-(--grey) p-1 text-(--white)"
-				>
-					{#each people as person}
-						{#if person.attendingEvent}
-							<option value={person.uuid}>{person.displayName}</option>
-						{/if}
-					{/each}
-				</select>
-				<select
-					name="exception"
-					class="h-fit w-[30%] rounded-md border border-(--grey) p-1 text-(--white)"
-				>
-				</select>
-				<input
-					type="text"
-					name="details"
-					class="h-fit w-[30%] rounded-md border border-(--grey) p-1 text-(--white)"
-					placeholder="Details (optional)"
-				/>
-				<button id="submit" class="button-primary">Add</button>
-			</form>
 		</div>
 	</div>
 </div>
