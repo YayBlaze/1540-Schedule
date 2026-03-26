@@ -110,8 +110,8 @@ export async function changePersonStatus(personUUID: string) {
 		.run(!attendingEvent, personUUID);
 }
 
-export async function setPersonSchedule(personUUID: string, schedule: Role[]) {
-	const roleStrings = schedule.map((role) => Role[role]);
+export async function setPersonSchedule(personUUID: string, schedule: (Role | null)[]) {
+	const roleStrings = schedule.map((role) => (role != null ? Role[role] : null));
 	return db
 		.prepare(`INSERT OR REPLACE INTO schedule VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 		.run(personUUID, ...roleStrings);

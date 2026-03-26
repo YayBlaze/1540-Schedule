@@ -1,6 +1,6 @@
 import { nexusKey } from '$env/static/private';
 import { eventKey, team } from '$lib/config';
-import type { nexusData } from './types';
+import type { nexusData, nexusMatch } from './types';
 
 var data: nexusData;
 
@@ -41,15 +41,32 @@ export function lunch() {
 		return { starts, ends };
 	}
 	return {
-		starts: matchBefore?.times.estimatedStartTime + 3 * 60 * 1000,
+		starts: matchBefore.times.estimatedStartTime + 3 * 60 * 1000,
 		ends: matchAfter.times.estimatedStartTime
 	};
 }
 
 export function ourMatches() {
-	let matches = data.matches;
-	matches = matches.filter((match) => {
-		match.blueTeams.includes(team) || match.redTeams.includes(team);
-	});
-	return matches.sort((a, b) => a.times.estimatedStartTime - b.times.estimatedStartTime);
+	return data.matches.filter(
+		(m: nexusMatch) => m.redTeams?.includes(team) || m.blueTeams?.includes(team)
+	);
+}
+
+export function getLastMatch() {
+	const todaysDate = new Date().toLocaleDateString();
+	const todaysMatches = data.matches.filter(
+		(m: nexusMatch) => new Date(m.times.estimatedStartTime).toLocaleDateString() == todaysDate
+	);
+	todaysMatches.sort((a, b) => b.times.estimatedStartTime - a.times.estimatedStartTime);
+	return todaysMatches[0];
+}
+
+export function formatMatchLabel(label: string, negativeOffset: boolean = false) {
+	let number = parseInt(label.split(' ')[1]);
+	if (negativeOffset) number -= 1;
+	return label.includes('Qualification')
+		? `QM${number}`
+		: label.includes('Practice')
+			? `PM${number}`
+			: label;
 }

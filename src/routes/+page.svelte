@@ -39,7 +39,7 @@
 	}
 </script>
 
-<nav class="mb-5 flex h-fit w-full items-center justify-between bg-(--white) p-2 pr-5 pl-5">
+<nav class="flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<div class="flex items-center justify-start gap-1">
 		<h1 class="pr-5 text-4xl text-(--black)">1540 Schedule</h1>
 		{#if view == 'time'}
@@ -68,13 +68,13 @@
 	>
 </nav>
 
-<div class="m-auto bg-(--black2) p-2">
+<div class="m-auto size-fit overflow-x-scroll bg-(--black2) p-5">
 	<table>
 		<thead class="text-sm">
 			<tr>
 				<th class="bg-[#3c3c3c] p-2">Name</th>
 				{#each slots as slot}
-					<th class="bg-[#3c3c3c] p-2">{slot.startLabel}-{slot.endLabel}</th>
+					<th class="w-fit bg-[#3c3c3c] p-2 text-nowrap">{slot.startLabel}-{slot.endLabel}</th>
 				{/each}
 			</tr>
 			{#each schedule as person}

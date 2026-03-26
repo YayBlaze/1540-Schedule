@@ -1,17 +1,21 @@
-import { getPeople, setPersonSchedule, setSlot } from './db';
-import { lunch as getLunch, ourMatches } from './nexus';
-import { Role } from './types';
+import { getPeople, getSlots, setPersonSchedule, setSlot } from './db';
+import { lunch as getLunch, getLastMatch, ourMatches, formatMatchLabel } from './nexus';
+import { Role } from '$lib/types';
 
 export async function generateSchedule() {
-	await generateSlotsDummy();
-	let people = await getPeople();
+	await generateSlotsNexus();
+	const people = await getPeople();
+	const slots = await getSlots();
 	for (let person of people) {
 		let schedule = [];
 		let values = Object.values(Role).filter((v) => typeof v === 'number');
 		values.push(Role.Open);
-		for (let i = 0; i < 11; i++) {
+		for (let i = 0; i < slots.length; i++) {
 			const random = values[Math.floor(Math.random() * values.length)];
 			schedule.push(random);
+		}
+		for (let i = slots.length; i < 11; i++) {
+			schedule.push(null);
 		}
 		await setPersonSchedule(person.uuid, schedule);
 	}
@@ -29,24 +33,37 @@ export async function generateSlotsNexus() {
 	for (let i = 0; i < matches.length; i++) {
 		let match = matches[i];
 		let nextMath = matches[i + 1];
-		if (match.times.estimatedStartTime < startOfDay || match.times.estimatedQueueTime > endOfDay)
-			continue;
+		if (i + 1 >= matches.length) {
+			const lastMatch = getLastMatch();
+			let slotData = {
+				id,
+				startTimestamp: match.times.estimatedStartTime,
+				endTimestamp: lastMatch.times.estimatedStartTime + 5 * 60 * 1000,
+				startLabel: formatMatchLabel(match.label),
+				endLabel: 'End of Day'
+			};
+			await setSlot(slotData);
+			break;
+		}
+		// if (match.times.estimatedStartTime < startOfDay || match.times.estimatedQueueTime > endOfDay)
+		// 	continue;
 		let slotData = {
 			id,
 			startTimestamp: match.times.estimatedStartTime,
 			endTimestamp: nextMath.times.estimatedStartTime,
-			startLabel: match.label,
-			endLabel: nextMath.label
+			startLabel: formatMatchLabel(match.label),
+			endLabel: formatMatchLabel(nextMath.label, true)
 		};
 		if (
 			match.times.estimatedStartTime < lunchTimes.starts &&
 			nextMath.times.estimatedStartTime > lunchTimes.ends
 		) {
+			console.log(match, nextMath);
 			slotData = {
 				id,
 				startTimestamp: match.times.estimatedStartTime,
 				endTimestamp: lunchTimes.starts,
-				startLabel: match.label,
+				startLabel: formatMatchLabel(match.label),
 				endLabel: 'Lunch'
 			};
 		}
