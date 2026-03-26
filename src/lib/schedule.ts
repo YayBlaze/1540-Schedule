@@ -1,4 +1,11 @@
-import { clearSlots, getPeople, getSlots, setPersonSchedule, setSlot } from '$lib/db';
+import {
+	clearSlots,
+	getPeople,
+	getSlots,
+	randomizePreferences,
+	setPersonSchedule,
+	setSlot
+} from '$lib/db';
 import { lunch as getLunch, getLastMatch, ourMatches, formatMatchLabel } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { createRequire } from 'node:module';
@@ -10,6 +17,7 @@ const __d = dirname(fileURLToPath(import.meta.url));
 const { makeSchedule } = req(join(__d, 'aldous', 'scheduling.js'));
 
 export async function generateSchedule() {
+	await randomizePreferences(); // REMOVE FOR PRODUCTION
 	await generateSlotsNexus();
 	const people = await getPeople();
 	const slots = await getSlots();

@@ -102,7 +102,20 @@ export async function getPerson(personUUID: string): Promise<PersonData | null> 
 export async function updatePreferences(personUUID: string, preferences: Preferences) {
 	return db
 		.prepare('UPDATE people SET preferences = ? WHERE uuid = ?')
-		.run(preferences, personUUID);
+		.run(JSON.stringify(preferences), personUUID);
+}
+
+export async function randomizePreferences() {
+	// for testing only
+	const people = await getPeople();
+	for (let person of people) {
+		updatePreferences(person.uuid, {
+			doPits: Math.floor(Math.random() * 6) as 0 | 1 | 2 | 3 | 4 | 5,
+			doMedia: Math.random() > 0.5,
+			doStrategy: Math.random() > 0.5,
+			doJournalism: Math.random() > 0.5
+		});
+	}
 }
 
 export async function updateRolePool(personUUID: string, rolePool: RolePool) {
@@ -151,7 +164,6 @@ export async function getScheduleAtSlot(slotNum: number) {
 
 export async function getNamesInRole(role: Role, slotNum: number): Promise<string[]> {
 	const schedule = await getScheduleAtSlot(slotNum);
-	// console.log(schedule);
 	let correct = schedule.filter((v) => {
 		return (v.role as string) === role;
 	});
@@ -233,6 +245,7 @@ export async function msToSlot(ms: number) {
 	const slots = await db.prepare('SELECT * FROM slots').all();
 	let num;
 	for (let slot of slots) {
+		console.log(slot.startTimestamp - ms);
 		if (slot.startTimestamp < ms && slot.endTimestamp > ms) {
 			num = slot.slotNumber;
 		}
