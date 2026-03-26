@@ -7,6 +7,7 @@
 
 	let schedule = $derived(data.schedule);
 	let slots = $derived(data.slots);
+	let roles = $derived(data.roles);
 	let view = $derived(data.view);
 
 	function getColor(role: Role) {
@@ -26,7 +27,7 @@
 			case Role.Journalism:
 				return '--yellow';
 			default:
-				return '--black2';
+				return '--black';
 		}
 	}
 
@@ -68,35 +69,59 @@
 </nav>
 
 <div class="m-auto size-fit overflow-x-scroll bg-(--black2) p-5">
-	<table>
-		<thead class="text-sm">
-			<tr>
-				<th class="bg-[#3c3c3c] p-2">Name</th>
-				{#each slots as slot}
-					<th class="w-fit bg-[#3c3c3c] p-2 text-nowrap">{slot.startLabel}-{slot.endLabel}</th>
-				{/each}
-			</tr>
-			{#each schedule as person}
+	{#if view == 'person'}
+		<table>
+			<thead class="text-sm">
 				<tr>
-					<td class="p-2">{person.name}</td>
-					{#each person.slots as slot}
-						<td
-							class="nunito text-center"
-							style="background-color: var({getColor(slot)}); color: var({slot === Role.Strategy ||
-							slot === Role.Open
-								? '--white'
-								: '--black'});">{slot}</td
-						>
+					<th class="bg-[#3c3c3c] p-2">Name</th>
+					{#each slots as slot}
+						<th class="w-fit bg-[#3c3c3c] p-2 text-nowrap">{slot.startLabel}-{slot.endLabel}</th>
 					{/each}
 				</tr>
+			</thead>
+			<tbody>
+				{#each schedule as person}
+					<tr>
+						<td class="p-2">{person.name}</td>
+						{#each person.slots as slot}
+							<td
+								class="nunito border border-(--black) p-2 text-center"
+								style="background-color: var({getColor(slot)}); color: var({slot ===
+									Role.Strategy || slot === Role.Open
+									? '--white'
+									: '--black'});">{slot}</td
+							>
+						{/each}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	{:else}
+		<div class="nunito flex size-full flex-col items-center justify-around">
+			{#each slots as slot}
+				<div class="flex w-[95%] justify-between gap-5 border border-(--white) p-5">
+					<p class="w-fit p-1 font-black text-nowrap">{slot.startLabel}-{slot.endLabel}</p>
+					<div class="flex flex-wrap items-center gap-3">
+						{#each Object.keys(roles[slot.slotNumber]) as role}
+							{#if roles[slot.slotNumber][role as Role].length > 0}
+								<div
+									style="background-color: var({getColor(
+										role as Role
+									)}); color: var({(role as Role) === Role.Strategy || (role as Role) === Role.Open
+										? '--white'
+										: '--black'});"
+									class="flex gap-1.5 rounded-md p-1"
+								>
+									<p class="font-bold">{role}</p>
+									{#each roles[slot.slotNumber][role as Role] as person}
+										<p>{person}</p>
+									{/each}
+								</div>
+							{/if}
+						{/each}
+					</div>
+				</div>
 			{/each}
-		</thead>
-	</table>
+		</div>
+	{/if}
 </div>
-
-<style>
-	td {
-		border: 1px solid var(--black);
-		padding: 0.5rem;
-	}
-</style>

@@ -1,4 +1,4 @@
-import { getPeople, getSchedule, getSlots } from '$lib/db';
+import { getPeople, getNamesInRole, getSchedule, getSlots } from '$lib/db';
 import { Role } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
@@ -22,5 +22,20 @@ export const load: PageServerLoad = async ({ url }) => {
 			.map((key) => row[key as keyof typeof row] as Role)
 	}));
 
-	return { view, schedule, slots };
+	let roles: Record<string, string[]>[] = [];
+	for (let slot of slots) {
+		let sn = slot.slotNumber + 1;
+		roles.push({
+			Open: await getNamesInRole(Role.Open, sn),
+			Pits: await getNamesInRole(Role.Pits, sn),
+			'Pit Lead': await getNamesInRole(Role.PitLead, sn),
+			Scouting: await getNamesInRole(Role.Scouting, sn),
+			Strategy: await getNamesInRole(Role.Strategy, sn),
+			Drive: await getNamesInRole(Role.Drive, sn),
+			Media: await getNamesInRole(Role.Media, sn),
+			Journalism: await getNamesInRole(Role.Journalism, sn)
+		});
+	}
+
+	return { view, schedule, slots, roles };
 };

@@ -58,7 +58,11 @@ export async function initDB() {
 export async function getPeople(): Promise<PersonData[]> {
 	const res = db.prepare('SELECT * FROM people ORDER BY firstName').all() as PersonData[];
 	return res.map((data) => {
-		return { ...data, rolePool: data.rolePool as RolePool };
+		return {
+			...data,
+			rolePool: data.rolePool as RolePool,
+			preferences: JSON.parse(data.preferences as unknown as string)
+		};
 	});
 }
 
@@ -79,13 +83,20 @@ export async function addPerson(data: { firstName: string; lastName: string }) {
 
 export async function removePerson(personUUID: string) {
 	const data = await getPerson(personUUID);
+	if (!data) return;
 	await db.prepare('DELETE FROM people WHERE uuid = ?').run(personUUID);
+	await db.prepare('DELETE FROM schedule WHERE personUUID = ?').run(personUUID);
 	await formatName(data.firstName, data.lastName);
 }
 
-export async function getPerson(personUUID: string): Promise<PersonData> {
+export async function getPerson(personUUID: string): Promise<PersonData | null> {
 	const res = db.prepare('SELECT * FROM people WHERE uuid = ?').get(personUUID) as PersonData;
-	return { ...res, rolePool: res.rolePool as RolePool };
+	if (!res) return null;
+	return {
+		...res,
+		rolePool: res.rolePool as RolePool,
+		preferences: JSON.parse(res.preferences as unknown as string)
+	};
 }
 
 export async function updatePreferences(personUUID: string, preferences: Preferences) {
@@ -125,13 +136,31 @@ export async function getPersonSchedule(personUUID: string) {
 
 export async function getCurrentSchedule() {
 	const slot = await msToSlot(Date.now());
+	return await getScheduleAtSlot(parseInt(slot.num));
+}
+
+export async function getScheduleAtSlot(slotNum: number) {
 	const res = db.prepare(`SELECT * FROM schedule`).all();
 	let final = [];
 	for (let person of res) {
-		let role: unknown = person[slot.num];
+		let role: unknown = person[`slot${slotNum}`];
 		final.push({ personUUID: person.personUUID, role: role as Role });
 	}
 	return final;
+}
+
+export async function getNamesInRole(role: Role, slotNum: number): Promise<string[]> {
+	const schedule = await getScheduleAtSlot(slotNum);
+	// console.log(schedule);
+	let correct = schedule.filter((v) => {
+		return (v.role as string) === role;
+	});
+	let names = correct.map(async (v) => {
+		let person = await getPerson(v.personUUID);
+		if (!person) throw new Error('invalid person uuid');
+		return person.displayName;
+	});
+	return Promise.all(names);
 }
 
 export async function setSlot(data: {
@@ -152,12 +181,16 @@ export async function setSlot(data: {
 
 export async function getSlots() {
 	return db.prepare('SELECT * FROM slots').all() as {
-		id: number;
+		slotNumber: number;
 		startTimestamp: number;
 		endTimestamp: number;
 		startLabel: string;
 		endLabel: string;
 	}[];
+}
+
+export async function clearSlots() {
+	return db.prepare('DELETE FROM slots').run();
 }
 
 export async function isValidSession(sessionID: string): Promise<boolean> {

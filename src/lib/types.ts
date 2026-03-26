@@ -32,7 +32,7 @@ export type personSchedule = {
 
 export enum Role {
 	Open = 'Open',
-	PitLead = 'PitLead',
+	PitLead = 'Pit Lead',
 	Pits = 'Pits',
 	Drive = 'Drive',
 	Scouting = 'Scouting',
@@ -43,11 +43,9 @@ export enum Role {
 
 export enum RolePool {
 	None = 'None',
-	PitLead = 'PitLead',
+	PitLead = 'Pit Lead',
 	Drive = 'Drive',
-	ONLY_Scouting = 'OnlyScouting',
-	ONLY_Strategy = 'OnlyStrategy',
-	NO_Scouting = 'NoScouting'
+	NO_Scouting = 'No Scouting'
 }
 
 export type nexusData = {

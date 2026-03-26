@@ -1,4 +1,4 @@
-import { getPeople, getSlots, setPersonSchedule, setSlot } from '$lib/db';
+import { clearSlots, getPeople, getSlots, setPersonSchedule, setSlot } from '$lib/db';
 import { lunch as getLunch, getLastMatch, ourMatches, formatMatchLabel } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { createRequire } from 'node:module';
@@ -111,18 +111,19 @@ export async function generateSchedule() {
 }
 
 export async function generateSlotsNexus() {
+	await clearSlots();
 	const matches = await ourMatches();
 	const date = new Date();
 	date.setHours(0, 0, 0, 0);
 	const startOfDay = date.getTime();
 	date.setHours(23, 59, 59, 999);
-	const endOfDay = date.getDate();
+	const endOfDay = date.getTime();
 	const lunchTimes = getLunch();
 	let id = 0;
 	for (let i = 0; i < matches.length; i++) {
 		let match = matches[i];
 		let nextMath = matches[i + 1];
-		if (i + 1 >= matches.length) {
+		if (!nextMath || nextMath.times.estimatedStartTime > endOfDay) {
 			const lastMatch = getLastMatch();
 			let slotData = {
 				id,
@@ -134,8 +135,8 @@ export async function generateSlotsNexus() {
 			await setSlot(slotData);
 			break;
 		}
-		// if (match.times.estimatedStartTime < startOfDay || match.times.estimatedQueueTime > endOfDay)
-		// 	continue;
+		if (match.times.estimatedStartTime < startOfDay || match.times.estimatedQueueTime > endOfDay)
+			continue;
 		let slotData = {
 			id,
 			startTimestamp: match.times.estimatedStartTime,
@@ -147,7 +148,6 @@ export async function generateSlotsNexus() {
 			match.times.estimatedStartTime < lunchTimes.starts &&
 			nextMath.times.estimatedStartTime > lunchTimes.ends
 		) {
-			// console.log(match, nextMath);
 			slotData = {
 				id,
 				startTimestamp: match.times.estimatedStartTime,
@@ -161,6 +161,7 @@ export async function generateSlotsNexus() {
 	}
 }
 export async function generateSlotsDummy() {
+	await clearSlots();
 	let matchNum = 0;
 	let startTimestamp = Date.now();
 	for (let id = 1; id <= 11; id++) {
