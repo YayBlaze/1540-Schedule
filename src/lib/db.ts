@@ -58,8 +58,7 @@ export async function initDB() {
 export async function getPeople(): Promise<PersonData[]> {
 	const res = db.prepare('SELECT * FROM people ORDER BY firstName').all() as PersonData[];
 	return res.map((data) => {
-		let value: unknown = data.rolePool;
-		return { ...data, rolePool: RolePool[value as keyof typeof RolePool] };
+		return { ...data, rolePool: data.rolePool as RolePool };
 	});
 }
 
@@ -72,7 +71,7 @@ export async function addPerson(data: { firstName: string; lastName: string }) {
 			data.lastName,
 			data.firstName,
 			true,
-			RolePool[RolePool.None],
+			RolePool.None,
 			JSON.stringify({})
 		);
 	await formatName(data.firstName, data.lastName);
@@ -86,8 +85,7 @@ export async function removePerson(personUUID: string) {
 
 export async function getPerson(personUUID: string): Promise<PersonData> {
 	const res = db.prepare('SELECT * FROM people WHERE uuid = ?').get(personUUID) as PersonData;
-	let value: unknown = res.rolePool;
-	return { ...res, rolePool: RolePool[value as keyof typeof RolePool] };
+	return { ...res, rolePool: res.rolePool as RolePool };
 }
 
 export async function updatePreferences(personUUID: string, preferences: Preferences) {
@@ -97,9 +95,7 @@ export async function updatePreferences(personUUID: string, preferences: Prefere
 }
 
 export async function updateRolePool(personUUID: string, rolePool: RolePool) {
-	return db
-		.prepare('UPDATE people SET rolePool = ? WHERE uuid = ?')
-		.run(RolePool[rolePool], personUUID);
+	return db.prepare('UPDATE people SET rolePool = ? WHERE uuid = ?').run(rolePool, personUUID);
 }
 
 export async function changePersonStatus(personUUID: string) {
@@ -111,10 +107,9 @@ export async function changePersonStatus(personUUID: string) {
 }
 
 export async function setPersonSchedule(personUUID: string, schedule: (Role | null)[]) {
-	const roleStrings = schedule.map((role) => (role != null ? Role[role] : null));
 	return db
 		.prepare(`INSERT OR REPLACE INTO schedule VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-		.run(personUUID, ...roleStrings);
+		.run(personUUID, ...schedule);
 }
 
 export async function getSchedule() {

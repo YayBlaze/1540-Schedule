@@ -46,7 +46,8 @@ export function lunch() {
 	};
 }
 
-export function ourMatches() {
+export async function ourMatches() {
+	await fetchData();
 	return data.matches.filter(
 		(m: nexusMatch) => m.redTeams?.includes(team) || m.blueTeams?.includes(team)
 	);

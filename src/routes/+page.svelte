@@ -10,7 +10,6 @@
 	let view = $derived(data.view);
 
 	function getColor(role: Role) {
-		role = Role[role as unknown as keyof typeof Role];
 		switch (role) {
 			case Role.Drive:
 				return '--blue';
@@ -83,9 +82,8 @@
 					{#each person.slots as slot}
 						<td
 							class="nunito text-center"
-							style="background-color: var({getColor(slot)}); color: var({Role[
-								slot as unknown as keyof typeof Role
-							] === Role.Strategy || Role[slot as unknown as keyof typeof Role] === Role.Open
+							style="background-color: var({getColor(slot)}); color: var({slot === Role.Strategy ||
+							slot === Role.Open
 								? '--white'
 								: '--black'});">{slot}</td
 						>

@@ -31,23 +31,23 @@ export type personSchedule = {
 };
 
 export enum Role {
-	Open,
-	PitLead,
-	Pits,
-	Drive,
-	Scouting,
-	Strategy,
-	Media,
-	Journalism
+	Open = 'Open',
+	PitLead = 'PitLead',
+	Pits = 'Pits',
+	Drive = 'Drive',
+	Scouting = 'Scouting',
+	Strategy = 'Strategy',
+	Media = 'Media',
+	Journalism = 'Journalism'
 }
 
 export enum RolePool {
-	None,
-	PitLead,
-	Drive,
-	ONLY_Scouting,
-	ONLY_Strategy,
-	NO_Scouting
+	None = 'None',
+	PitLead = 'PitLead',
+	Drive = 'Drive',
+	ONLY_Scouting = 'OnlyScouting',
+	ONLY_Strategy = 'OnlyStrategy',
+	NO_Scouting = 'NoScouting'
 }
 
 export type nexusData = {

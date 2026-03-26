@@ -81,7 +81,7 @@
 					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
 				>
 					{#each people as person}
-						{#if person.attendingEvent && person.rolePool == RolePool.None}
+						{#if person.attendingEvent && (!person.rolePool || person.rolePool == RolePool.None)}
 							<option value={person.uuid}>{person.displayName}</option>
 						{/if}
 					{/each}
@@ -107,7 +107,7 @@
 						<div
 							class="mb-1 flex items-center justify-between rounded-xl border border-(--white) p-2"
 						>
-							<p>{person.displayName} -> {person.rolePool.toString()}</p>
+							<p>{person.displayName} -> {person.rolePool}</p>
 							<form action="?/deleteAssignment" method="post">
 								<input name="id" type="hidden" value={person.uuid} />
 								<button id="submit" class="button-destructive">Remove</button>

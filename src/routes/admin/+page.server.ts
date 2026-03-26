@@ -17,7 +17,7 @@ export const actions = {
 		const uuid = data.get('person')?.toString();
 		const role = data.get('role')?.toString();
 		if (!uuid || !role) return fail(400);
-		const rolePool = RolePool[role as keyof typeof RolePool];
+		const rolePool = role as RolePool;
 		await updateRolePool(uuid, rolePool);
 	},
 	deleteAssignment: async ({ request }) => {

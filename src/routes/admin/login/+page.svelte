@@ -19,6 +19,7 @@
 			>Login</button
 		>
 	</form>
+	<a href="/">Or back to schedule</a>
 </div>
 
 <style>
@@ -29,5 +30,9 @@
 		border-radius: 5px;
 		padding: 2%;
 		margin: auto;
+	}
+	a:hover {
+		color: #34adfe;
+		text-decoration: underline wavy;
 	}
 </style>
