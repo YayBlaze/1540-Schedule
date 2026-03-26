@@ -377,9 +377,11 @@ function isUnavailable(sub, blkLabel, blkIdx) {
 	return !!st && t.includes(st);
 }
 
-function isEligible(sub, role, blkIdx, blkLabel, sctCtx, noScouting) {
+function isEligible(sub, role, blkIdx, blkLabel, sctCtx, noScouting, pitLeadIds) {
 	if (!sub) return false;
 	if (isUnavailable(sub, blkLabel, blkIdx)) return false;
+
+	if (role === 'Pit Lead' && !pitLd(sub, pitLeadIds || [])) return false;
 
 	if (role === 'Drive') return !!sub.driveTeam;
 	if (sub.driveTeam && role !== 'Open') return false;
@@ -427,7 +429,7 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 		let cands = people.filter((p) => {
 			if ((p.schedule || [])[blkIdx] !== 'Open') return false;
 			const sub = sMap.get(p.email);
-			if (!isEligible(sub, role, blkIdx, blk, sctCtx, noScouting)) return false;
+			if (!isEligible(sub, role, blkIdx, blk, sctCtx, noScouting, pitLeadIds)) return false;
 			if (onlyPreferred && roleAffinity(sub, role, pitLeadIds, noStrategy) <= 0) return false;
 			return true;
 		});
@@ -481,7 +483,8 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 			const eligOpen = people.filter((p) => {
 				const sub = sMap.get(p.email);
 				return (
-					p.schedule[bi] === 'Open' && isEligible(sub, SCT, bi, blocks[bi], sctCtx, noScouting)
+					p.schedule[bi] === 'Open' &&
+					isEligible(sub, SCT, bi, blocks[bi], sctCtx, noScouting, pitLeadIds)
 				);
 			}).length;
 			const scoutTarget = Math.max(scoutMn, Math.min(scoutMx, eligOpen));
@@ -507,7 +510,7 @@ function scoreDay(people, subs, blocks, req, schedCtx) {
 			roleCounts[r] = (roleCounts[r] || 0) + 1;
 			const sub = sMap.get(p.email);
 
-			if (!isEligible(sub, r, bi, blocks[bi], sctCtx, noScouting)) hardViol++;
+			if (!isEligible(sub, r, bi, blocks[bi], sctCtx, noScouting, pitLeadIds)) hardViol++;
 			if (sub && sub.driveTeam && r !== 'Drive' && r !== 'Open') hardViol++;
 			if (r === SCT && !scoutSlotOpen(bi, sctCtx)) hardViol++;
 		}
@@ -565,8 +568,10 @@ function mutateDaySchedule(people, subs, blocks, schedCtx) {
 	const ra = (a.schedule || [])[bi] || 'Open';
 	const rb = (b.schedule || [])[bi] || 'Open';
 
-	if (!isEligible(sMap.get(a.email), rb, bi, blk, sctCtx, noScouting)) return null;
-	if (!isEligible(sMap.get(b.email), ra, bi, blk, sctCtx, noScouting)) return null;
+	if (!isEligible(sMap.get(a.email), rb, bi, blk, sctCtx, noScouting, schedCtx.pitLeadIds))
+		return null;
+	if (!isEligible(sMap.get(b.email), ra, bi, blk, sctCtx, noScouting, schedCtx.pitLeadIds))
+		return null;
 
 	a.schedule[bi] = rb;
 	b.schedule[bi] = ra;
