@@ -1,5 +1,5 @@
-import { getPeople, getSlots, setPersonSchedule, setSlot } from '$lib/db';
-import { lunch as getLunch, getLastMatch, ourMatches, formatMatchLabel } from '$lib/nexus';
+import { getPeople, getSlots, setPersonSchedule, setSlot } from './db';
+import { lunch as getLunch, getLastMatch, ourMatches, formatMatchLabel } from './nexus';
 import { Role, RolePool } from '$lib/types';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -13,7 +13,8 @@ export async function generateSchedule() {
 	await generateSlotsNexus();
 	const people = await getPeople();
 	const slots = await getSlots();
-	const ppl = (people || []).filter((p) => p && p.attendingEvent);
+
+	const ppl = (people || []).filter((p) => p && p.attendingEvent !== false);
 	const nSlots = Math.min(11, (slots || []).length);
 
 	const drv = ppl.filter((p) => p.rolePool === RolePool.Drive).length;
@@ -30,14 +31,11 @@ export async function generateSchedule() {
 		wantsStrategy: !!(p.preferences && p.preferences.doStrategy),
 		wantsMedia: !!(p.preferences && p.preferences.doMedia),
 		driveTeam: p.rolePool === RolePool.Drive,
-		cannotScout:
-			p.rolePool === RolePool.NO_Scouting ||
-			p.rolePool === RolePool.Drive ||
-			p.rolePool === RolePool.PitLead,
+		cannotScout: p.rolePool === RolePool.NO_Scouting || p.rolePool === RolePool.Drive || p.rolePool === RolePool.PitLead,
 		unavailableTimes: '',
 		conventionTalks: '',
 		friday: true,
-		saturday: false
+		saturday: false,
 	}));
 
 	const cfg = {
@@ -49,12 +47,8 @@ export async function generateSchedule() {
 		showOnlyDay: 0,
 		optimizationIterations: 2000,
 
-		pitLeadIds: subs
-			.filter((s) => ppl.find((p) => p.uuid === s.email)?.rolePool === RolePool.PitLead)
-			.map((s) => s.email),
-		noScouting: subs
-			.filter((s) => ppl.find((p) => p.uuid === s.email)?.rolePool === RolePool.NO_Scouting)
-			.map((s) => s.email),
+		pitLeadIds: subs.filter((s) => ppl.find((p) => p.uuid === s.email)?.rolePool === RolePool.PitLead).map((s) => s.email),
+		noScouting: subs.filter((s) => ppl.find((p) => p.uuid === s.email)?.rolePool === RolePool.NO_Scouting).map((s) => s.email),
 		noStrategy: [],
 		driveTeamExtra: [],
 		skipPeople: [],
@@ -66,7 +60,7 @@ export async function generateSchedule() {
 			Journalist: { min: 0, max: 1 },
 			Strategy: { min: 0, max: 3 },
 			Media: { min: 0, max: 1 },
-			'Scouting!': { min: 0, max: 7 }
+			'Scouting!': { min: 0, max: 7 },
 		},
 
 		daySchedule: [
@@ -81,25 +75,11 @@ export async function generateSchedule() {
 		columnMap: { email: 'x', wantsPits: 'x', whichDays: 'x' }
 	};
 
-	const enumConversion: Record<number, Role> = {
-		0: Role.Open,
-		1: Role.PitLead,
-		2: Role.Pits,
-		3: Role.Drive,
-		4: Role.Scouting,
-		5: Role.Strategy,
-		6: Role.Media,
-		7: Role.Journalism
-	};
-
 	const out = await makeSchedule(cfg);
 	const day0 = (out.days || [])[0];
 	const m = new Map<string, (Role | null)[]>();
-	(day0 && day0.people ? day0.people : []).forEach((p: { email: any; schedule: number[] }) => {
-		m.set(
-			String(p.email),
-			p.schedule.map((v) => enumConversion[v])
-		);
+	(day0 && day0.people ? day0.people : []).forEach((p: any) => {
+		m.set(String(p.email), (p.schedule || []) as (Role | null)[]);
 	});
 
 	for (let person of ppl) {
@@ -111,7 +91,7 @@ export async function generateSchedule() {
 }
 
 export async function generateSlotsNexus() {
-	const matches = await ourMatches();
+	const matches = ourMatches();
 	const date = new Date();
 	date.setHours(0, 0, 0, 0);
 	const startOfDay = date.getTime();
@@ -147,7 +127,7 @@ export async function generateSlotsNexus() {
 			match.times.estimatedStartTime < lunchTimes.starts &&
 			nextMath.times.estimatedStartTime > lunchTimes.ends
 		) {
-			// console.log(match, nextMath);
+			console.log(match, nextMath);
 			slotData = {
 				id,
 				startTimestamp: match.times.estimatedStartTime,

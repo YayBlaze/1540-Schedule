@@ -1,5 +1,6 @@
-// const fs = require('fs').promises;
-// const https = require('https');
+const fs = require('fs').promises;
+const https = require('https');
+
 
 const RL = ['Drive', 'Pits', 'Pit Lead', 'Journalist', 'Strategy', 'Media'];
 const SCT = 'Scouting!';
@@ -9,757 +10,765 @@ const CMUST = ['email', 'wantsPits', 'whichDays'];
 
 const HP = 1000000;
 const BW = {
-	Drive: 5,
-	'Pit Lead': 4,
-	Pits: 3,
-	Strategy: 2,
-	Media: 2,
-	Journalist: 2,
-	'Scouting!': 1.5,
-	Open: 0
+  Drive: 5,
+  'Pit Lead': 4,
+  Pits: 3,
+  Strategy: 2,
+  Media: 2,
+  Journalist: 2,
+  'Scouting!': 1.5,
+  Open: 0,
 };
 
 const ROLE_ENUM = Object.freeze({
-	Open: 0,
-	PitLead: 1,
-	Pits: 2,
-	Drive: 3,
-	Scouting: 4,
-	Strategy: 5,
-	Media: 6,
-	Journalism: 7
+  Open: 0,
+  PitLead: 1,
+  Pits: 2,
+  Drive: 3,
+  Scouting: 4,
+  Strategy: 5,
+  Media: 6,
+  Journalism: 7,
 });
 
 const STR_TO_ROLE_ENUM = Object.freeze({
-	Open: ROLE_ENUM.Open,
-	'Pit Lead': ROLE_ENUM.PitLead,
-	Pits: ROLE_ENUM.Pits,
-	Drive: ROLE_ENUM.Drive,
-	'Scouting!': ROLE_ENUM.Scouting,
-	Strategy: ROLE_ENUM.Strategy,
-	Media: ROLE_ENUM.Media,
-	Journalist: ROLE_ENUM.Journalism
+  Open: ROLE_ENUM.Open,
+  'Pit Lead': ROLE_ENUM.PitLead,
+  Pits: ROLE_ENUM.Pits,
+  Drive: ROLE_ENUM.Drive,
+  'Scouting!': ROLE_ENUM.Scouting,
+  Strategy: ROLE_ENUM.Strategy,
+  Media: ROLE_ENUM.Media,
+  Journalist: ROLE_ENUM.Journalism,
 });
 
 function idHit(lst, emLc, disp) {
-	if (!lst || !lst.length) return false;
-	const nm = (disp || '').trim().toLowerCase();
-	return lst.some((raw) => {
-		const x = String(raw).trim();
-		if (!x) return false;
-		const xl = x.toLowerCase();
-		if (x.includes('@')) return xl === emLc;
-		return xl === emLc || xl === nm;
-	});
+  if (!lst || !lst.length) return false;
+  const nm = (disp || '').trim().toLowerCase();
+  return lst.some((raw) => {
+    const x = String(raw).trim();
+    if (!x) return false;
+    const xl = x.toLowerCase();
+    if (x.includes('@')) return xl === emLc;
+    return xl === emLc || xl === nm;
+  });
 }
 
 function pitLd(p, plIds) {
-	if (!p || !plIds || !plIds.length) return false;
-	return idHit(plIds, (p.email || '').toLowerCase(), p.name);
+  if (!p || !plIds || !plIds.length) return false;
+  return idHit(plIds, (p.email || '').toLowerCase(), p.name);
 }
 
 function valCfg(CF) {
-	const die = (m) => {
-		throw new Error(`config: ${m}`);
-	};
-	if (!CF || typeof CF !== 'object') die('cfg object required');
-	const hasSubs = Array.isArray(CF.subs) && CF.subs.length > 0;
-	if (!hasSubs) {
-		if (!CF.csvPath) die('csvPath required');
-		if (!CF.columnMap || typeof CF.columnMap !== 'object') die('columnMap required');
-		for (const k of CMUST) {
-			const v = CF.columnMap[k];
-			if (v == null || String(v).trim() === '')
-				die(`columnMap.${k} must be a non-empty header string`);
-		}
-	}
-	if (!CF.roleStaffing) die('roleStaffing required');
-	for (const r of RL_STAFF) {
-		const rs = CF.roleStaffing[r];
-		if (!rs || rs.min == null || rs.max == null) die(`roleStaffing.${r} with min and max required`);
-		if (Number(rs.min) > Number(rs.max)) die(`roleStaffing.${r}: min cannot exceed max`);
-	}
-	if (CF.driveTeamExtra != null && !Array.isArray(CF.driveTeamExtra)) {
-		die('driveTeamExtra must be an array when set');
-	}
-	if (!Array.isArray(CF.pitLeadIds)) die('pitLeadIds (array) required');
-	if (!Array.isArray(CF.noScouting)) die('noScouting (array) required');
-	if (!Array.isArray(CF.daySchedule) || CF.daySchedule.length < 1)
-		die('daySchedule (non-empty array) required');
-	CF.daySchedule.forEach((d, i) => {
-		const c = d.clock;
-		if (!c || c.start == null || c.lunchStart == null || c.lunchEnd == null || c.end == null) {
-			die(`daySchedule[${i}].clock needs start, lunchStart, lunchEnd, end`);
-		}
-		if (typeof d.matchesBeforeLunch !== 'number' || typeof d.matchesAfterLunch !== 'number') {
-			die(`daySchedule[${i}].matchesBeforeLunch and matchesAfterLunch (numbers) required`);
-		}
-		if (d.matchesBeforeLunch + d.matchesAfterLunch < 1) {
-			die(`daySchedule[${i}] needs at least one match total`);
-		}
-	});
-	if (CF.optimizationIterations == null) die('optimizationIterations required');
+  const die = (m) => {
+    throw new Error(`config: ${m}`);
+  };
+  if (!CF || typeof CF !== 'object') die('cfg object required');
+  const hasSubs = Array.isArray(CF.subs) && CF.subs.length > 0;
+  if (!hasSubs) {
+    if (!CF.csvPath) die('csvPath required');
+    if (!CF.columnMap || typeof CF.columnMap !== 'object') die('columnMap required');
+    for (const k of CMUST) {
+      const v = CF.columnMap[k];
+      if (v == null || String(v).trim() === '') die(`columnMap.${k} must be a non-empty header string`);
+    }
+  }
+  if (!CF.roleStaffing) die('roleStaffing required');
+  for (const r of RL_STAFF) {
+    const rs = CF.roleStaffing[r];
+    if (!rs || rs.min == null || rs.max == null) die(`roleStaffing.${r} with min and max required`);
+    if (Number(rs.min) > Number(rs.max)) die(`roleStaffing.${r}: min cannot exceed max`);
+  }
+  if (CF.driveTeamExtra != null && !Array.isArray(CF.driveTeamExtra)) {
+    die('driveTeamExtra must be an array when set');
+  }
+  if (!Array.isArray(CF.pitLeadIds)) die('pitLeadIds (array) required');
+  if (!Array.isArray(CF.noScouting)) die('noScouting (array) required');
+  if (!Array.isArray(CF.daySchedule) || CF.daySchedule.length < 1) die('daySchedule (non-empty array) required');
+  CF.daySchedule.forEach((d, i) => {
+    const c = d.clock;
+    if (!c || c.start == null || c.lunchStart == null || c.lunchEnd == null || c.end == null) {
+      die(`daySchedule[${i}].clock needs start, lunchStart, lunchEnd, end`);
+    }
+    if (typeof d.matchesBeforeLunch !== 'number' || typeof d.matchesAfterLunch !== 'number') {
+      die(`daySchedule[${i}].matchesBeforeLunch and matchesAfterLunch (numbers) required`);
+    }
+    if (d.matchesBeforeLunch + d.matchesAfterLunch < 1) {
+      die(`daySchedule[${i}] needs at least one match total`);
+    }
+  });
+  if (CF.optimizationIterations == null) die('optimizationIterations required');
 }
 
 function genMatchBlocksFromDay(dc) {
-	const c = dc.clock;
-	const st0 = timeToMins(c.start);
-	const lS = timeToMins(c.lunchStart);
-	const lE = timeToMins(c.lunchEnd);
-	const en0 = timeToMins(c.end);
-	const nB = Math.max(0, dc.matchesBeforeLunch | 0);
-	const nA = Math.max(0, dc.matchesAfterLunch | 0);
-	const labels = [];
-	const windows = [];
-	let k = 0;
-	const fmtBlk = (a, b) => {
-		const h1 = Math.floor(a / 60);
-		const m1 = Math.round(a % 60);
-		const h2 = Math.floor(b / 60);
-		const m2 = Math.round(b % 60);
-		const pad = (n) => String(Math.max(0, n)).padStart(2, '0');
-		return `${pad(h1)}:${pad(m1)}-${pad(h2)}:${pad(m2)}`;
-	};
-	if (nB > 0) {
-		const span = Math.max(1, lS - st0);
-		const w = span / nB;
-		for (let i = 0; i < nB; i++) {
-			k += 1;
-			labels.push(`Match ${k}`);
-			windows.push(fmtBlk(st0 + i * w, st0 + (i + 1) * w));
-		}
-	}
-	if (nA > 0) {
-		const span = Math.max(1, en0 - lE);
-		const w = span / nA;
-		for (let i = 0; i < nA; i++) {
-			k += 1;
-			labels.push(`Match ${k}`);
-			windows.push(fmtBlk(lE + i * w, lE + (i + 1) * w));
-		}
-	}
-	return { labels, windows };
+  const c = dc.clock;
+  const st0 = timeToMins(c.start);
+  const lS = timeToMins(c.lunchStart);
+  const lE = timeToMins(c.lunchEnd);
+  const en0 = timeToMins(c.end);
+  const nB = Math.max(0, dc.matchesBeforeLunch | 0);
+  const nA = Math.max(0, dc.matchesAfterLunch | 0);
+  const labels = [];
+  const windows = [];
+  let k = 0;
+  const fmtBlk = (a, b) => {
+    const h1 = Math.floor(a / 60);
+    const m1 = Math.round(a % 60);
+    const h2 = Math.floor(b / 60);
+    const m2 = Math.round(b % 60);
+    const pad = (n) => String(Math.max(0, n)).padStart(2, '0');
+    return `${pad(h1)}:${pad(m1)}-${pad(h2)}:${pad(m2)}`;
+  };
+  if (nB > 0) {
+    const span = Math.max(1, lS - st0);
+    const w = span / nB;
+    for (let i = 0; i < nB; i++) {
+      k += 1;
+      labels.push(`Match ${k}`);
+      windows.push(fmtBlk(st0 + i * w, st0 + (i + 1) * w));
+    }
+  }
+  if (nA > 0) {
+    const span = Math.max(1, en0 - lE);
+    const w = span / nA;
+    for (let i = 0; i < nA; i++) {
+      k += 1;
+      labels.push(`Match ${k}`);
+      windows.push(fmtBlk(lE + i * w, lE + (i + 1) * w));
+    }
+  }
+  return { labels, windows };
 }
 
 function dayScoutCtx(dc, blockWindows) {
-	if (dc.scoutLastMatch != null && Number.isFinite(Number(dc.scoutLastMatch))) {
-		return {
-			scoutLastMatch: Number(dc.scoutLastMatch),
-			sctEndMn: Infinity,
-			blockWindows
-		};
-	}
-	const sctEndMn = dc.scoutEnd != null ? timeToMins(dc.scoutEnd) : Infinity;
-	return {
-		scoutLastMatch: null,
-		sctEndMn,
-		blockWindows
-	};
+  if (dc.scoutLastMatch != null && Number.isFinite(Number(dc.scoutLastMatch))) {
+    return {
+      scoutLastMatch: Number(dc.scoutLastMatch),
+      sctEndMn: Infinity,
+      blockWindows,
+    };
+  }
+  const sctEndMn = dc.scoutEnd != null ? timeToMins(dc.scoutEnd) : Infinity;
+  return {
+    scoutLastMatch: null,
+    sctEndMn,
+    blockWindows,
+  };
 }
 
 function scoutSlotOpen(bi, ctx) {
-	if (ctx.scoutLastMatch != null && Number.isFinite(ctx.scoutLastMatch)) {
-		return bi + 1 <= ctx.scoutLastMatch;
-	}
-	const win = ctx.blockWindows && ctx.blockWindows[bi];
-	if (win) return blkStartMins(win) < ctx.sctEndMn;
-	if (ctx.sctEndMn === Infinity) return true;
-	return false;
+  if (ctx.scoutLastMatch != null && Number.isFinite(ctx.scoutLastMatch)) {
+    return bi + 1 <= ctx.scoutLastMatch;
+  }
+  const win = ctx.blockWindows && ctx.blockWindows[bi];
+  if (win) return blkStartMins(win) < ctx.sctEndMn;
+  if (ctx.sctEndMn === Infinity) return true;
+  return false;
 }
 
 function ldReq(CF, nBlk) {
-	const raw = CF.roleStaffing;
-	const fill = (val, len) => {
-		if (val == null) return new Array(len).fill(0);
-		if (Array.isArray(val)) {
-			return val.length >= len
-				? val.slice(0, len)
-				: val.concat(new Array(len - val.length).fill(val[val.length - 1] ?? 0));
-		}
-		return new Array(len).fill(val);
-	};
-	const req = {};
-	RL_STAFF.forEach((r) => {
-		const rr = raw[r];
-		req[r] = { min: fill(rr?.min, nBlk), max: fill(rr?.max, nBlk) };
-	});
-	return req;
+  const raw = CF.roleStaffing;
+  const fill = (val, len) => {
+    if (val == null) return new Array(len).fill(0);
+    if (Array.isArray(val)) {
+      return val.length >= len ? val.slice(0, len) : val.concat(new Array(len - val.length).fill(val[val.length - 1] ?? 0));
+    }
+    return new Array(len).fill(val);
+  };
+  const req = {};
+  RL_STAFF.forEach((r) => {
+    const rr = raw[r];
+    req[r] = { min: fill(rr?.min, nBlk), max: fill(rr?.max, nBlk) };
+  });
+  return req;
+}
+
+async function fetchNexusMatches(eventKey, apiKey) {
+  if (!eventKey || !apiKey) return null;
+  const key = (apiKey || process.env.NEXUS_API_KEY || '').trim();
+  if (!key) return null;
+
+  return new Promise((resolve) => {
+    const url = `https://frc.nexus/api/v1/event/${encodeURIComponent(eventKey)}`;
+    const req = https.get(url, { headers: { 'Nexus-Api-Key': key } }, (res) => {
+      let buf = '';
+      res.on('data', (c) => { buf += c; });
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(buf);
+          const matches = data.matches;
+          if (Array.isArray(matches) && matches.length > 0) {
+            resolve(matches.map((m, i) => m.label || `Match ${i + 1}`));
+          } else {
+            resolve(null);
+          }
+        } catch (_) {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(10000, () => { req.destroy(); resolve(null); });
+  });
 }
 
 function shortName(n) {
-	if (!n) return '';
-	if (n.includes('@')) {
-		const local = n.split('@')[0] || '';
-		if (local.length === 0) return n;
-		if (local.length === 1) return local.toUpperCase();
-		const fi = local[local.length - 1].toUpperCase();
-		const lRaw = local.slice(0, -1);
-		const ln = lRaw.charAt(0).toUpperCase() + lRaw.slice(1);
-		return `${fi} ${ln}`;
-	}
-	const p = n.trim().split(/\s+/);
-	if (p.length < 2) return p[0] || n;
-	return p[0] + ' ' + (p[1][0] || '').toUpperCase() + '.';
+  if (!n) return '';
+  if (n.includes('@')) {
+    const local = n.split('@')[0] || '';
+    if (local.length === 0) return n;
+    if (local.length === 1) return local.toUpperCase();
+    const fi = local[local.length - 1].toUpperCase();
+    const lRaw = local.slice(0, -1);
+    const ln = lRaw.charAt(0).toUpperCase() + lRaw.slice(1);
+    return `${fi} ${ln}`;
+  }
+  const p = n.trim().split(/\s+/);
+  if (p.length < 2) return p[0] || n;
+  return p[0] + ' ' + (p[1][0] || '').toUpperCase() + '.';
 }
 
 function shuf(arr) {
-	const a = arr.slice();
-	for (let i = a.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[a[i], a[j]] = [a[j], a[i]];
-	}
-	return a;
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 function parseCSV(txt) {
-	const rows = [];
-	let row = [];
-	let cur = '';
-	let q = false;
+  const rows = [];
+  let row = [];
+  let cur = '';
+  let q = false;
 
-	for (let i = 0; i < txt.length; i++) {
-		const c = txt[i];
-		if (c === '"') {
-			if (q && txt[i + 1] === '"') {
-				cur += '"';
-				i++;
-				continue;
-			}
-			q = !q;
-			continue;
-		}
-		if (!q) {
-			if (c === ',') {
-				row.push(cur.trim());
-				cur = '';
-				continue;
-			}
-			if (c === '\n' || c === '\r') {
-				if (c === '\r' && txt[i + 1] === '\n') i++;
-				row.push(cur.trim());
-				if (row.some((cell) => cell !== '')) rows.push(row);
-				row = [];
-				cur = '';
-				continue;
-			}
-		}
-		cur += c;
-	}
+  for (let i = 0; i < txt.length; i++) {
+    const c = txt[i];
+    if (c === '"') {
+      if (q && txt[i + 1] === '"') { cur += '"'; i++; continue; }
+      q = !q;
+      continue;
+    }
+    if (!q) {
+      if (c === ',') { row.push(cur.trim()); cur = ''; continue; }
+      if (c === '\n' || c === '\r') {
+        if (c === '\r' && txt[i + 1] === '\n') i++;
+        row.push(cur.trim());
+        if (row.some((cell) => cell !== '')) rows.push(row);
+        row = [];
+        cur = '';
+        continue;
+      }
+    }
+    cur += c;
+  }
 
-	if (cur !== '' || row.length > 0) {
-		row.push(cur.trim());
-		if (row.some((cell) => cell !== '')) rows.push(row);
-	}
+  if (cur !== '' || row.length > 0) {
+    row.push(cur.trim());
+    if (row.some((cell) => cell !== '')) rows.push(row);
+  }
 
-	return rows;
+  return rows;
 }
 
 function timeToMins(t) {
-	const [h, m] = (t || '0:00').split(':').map(Number);
-	return (h || 0) * 60 + (m || 0);
+  const [h, m] = (t || '0:00').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
 }
 
 function blkStartMins(blkStr) {
-	const start = blkStr.split('-')[0].trim();
-	const [h, m] = start.split(':').map(Number);
-	return (h || 0) * 60 + (m || 0);
+  const start = blkStr.split('-')[0].trim();
+  const [h, m] = start.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
 }
 
 function parseSubs(rows, colMap, opts = {}) {
-	const noScouting = opts.noScouting || [];
-	const driveTeamExtra = opts.driveTeamExtra || [];
-	if (rows.length < 2) return [];
-	const hdrs = rows[0].map((h) => (h || '').trim());
+  const noScouting = opts.noScouting || [];
+  const driveTeamExtra = opts.driveTeamExtra || [];
+  if (rows.length < 2) return [];
+  const hdrs = rows[0].map((h) => (h || '').trim());
 
-	const k2i = {};
-	for (const [k, htxt] of Object.entries(colMap)) {
-		const idx = hdrs.findIndex((h) => h === htxt || h === k);
-		if (idx >= 0) k2i[k] = idx;
-	}
+  const k2i = {};
+  for (const [k, htxt] of Object.entries(colMap)) {
+    const idx = hdrs.findIndex((h) => h === htxt || h === k);
+    if (idx >= 0) k2i[k] = idx;
+  }
 
-	const g = (row, k) => (k2i[k] != null ? (row[k2i[k]] || '').trim() : '');
+  const g = (row, k) => (k2i[k] != null ? (row[k2i[k]] || '').trim() : '');
 
-	const out = [];
-	for (let i = 1; i < rows.length; i++) {
-		const row = rows[i];
-		const id = g(row, 'email');
-		if (!id) continue;
-		if (/^\d+$/.test(id)) continue;
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const id = g(row, 'email');
+    if (!id) continue;
+    if (/^\d+$/.test(id)) continue;
 
-		const email = (id || '').toLowerCase();
-		const tag = (g(row, 'nametag') || '').trim();
-		const name = tag || id;
+    const email = (id || '').toLowerCase();
+    const tag = (g(row, 'nametag') || '').trim();
+    const name = tag || id;
 
-		const wantsPits = /yes|true|1/i.test(g(row, 'wantsPits')) || /true|1/i.test(g(row, 'pit'));
-		const otherRolesTxt = (g(row, 'otherRoles') || '').toLowerCase();
-		const pitWorkTxt = (g(row, 'pitWorkType') || '').toLowerCase();
-		const whichDaysTxt = (g(row, 'whichDays') || '').toLowerCase();
+    const wantsPits = /yes|true|1/i.test(g(row, 'wantsPits')) || /true|1/i.test(g(row, 'pit'));
+    const otherRolesTxt = (g(row, 'otherRoles') || '').toLowerCase();
+    const pitWorkTxt = (g(row, 'pitWorkType') || '').toLowerCase();
+    const whichDaysTxt = (g(row, 'whichDays') || '').toLowerCase();
 
-		const wantsMechPit =
-			/true|1/i.test(g(row, 'mechPit')) || /mechanical|fab|design/i.test(pitWorkTxt);
-		const wantsCtrlsPit = /true|1/i.test(g(row, 'ctrlsPit')) || /controls/i.test(pitWorkTxt);
-		const wantsSwPit = /true|1/i.test(g(row, 'swPit')) || /software/i.test(pitWorkTxt);
+    const wantsMechPit = /true|1/i.test(g(row, 'mechPit')) || /mechanical|fab|design/i.test(pitWorkTxt);
+    const wantsCtrlsPit = /true|1/i.test(g(row, 'ctrlsPit')) || /controls/i.test(pitWorkTxt);
+    const wantsSwPit = /true|1/i.test(g(row, 'swPit')) || /software/i.test(pitWorkTxt);
 
-		const wantsJournalism =
-			/true|1/i.test(g(row, 'journalism')) || /journalism/i.test(otherRolesTxt);
-		const wantsStrategy = /true|1/i.test(g(row, 'strategy')) || /strategy/i.test(otherRolesTxt);
-		const wantsMedia = /true|1/i.test(g(row, 'media')) || /media/i.test(otherRolesTxt);
+    const wantsJournalism = /true|1/i.test(g(row, 'journalism')) || /journalism/i.test(otherRolesTxt);
+    const wantsStrategy = /true|1/i.test(g(row, 'strategy')) || /strategy/i.test(otherRolesTxt);
+    const wantsMedia = /true|1/i.test(g(row, 'media')) || /media/i.test(otherRolesTxt);
 
-		const driveTeam = /yes|true|1/i.test(g(row, 'driveTeam')) || idHit(driveTeamExtra, email, name);
+    const driveTeam = /yes|true|1/i.test(g(row, 'driveTeam')) || idHit(driveTeamExtra, email, name);
 
-		let friday = /true|yes|1/i.test(g(row, 'friday'));
-		let saturday = /true|yes|1/i.test(g(row, 'saturday'));
-		if (!friday && !saturday && whichDaysTxt) {
-			const day0Match = /friday|saturday|3\/6|3\/7|3\/14/i.test(whichDaysTxt);
-			const day1Match = /sunday|3\/8|3\/15/i.test(whichDaysTxt);
-			friday = day0Match;
-			saturday = day1Match;
-		}
-		if (!friday && !saturday) continue;
+  
+    let friday = /true|yes|1/i.test(g(row, 'friday'));
+    let saturday = /true|yes|1/i.test(g(row, 'saturday'));
+    if (!friday && !saturday && whichDaysTxt) {
+      const day0Match = /friday|saturday|3\/6|3\/7|3\/14/i.test(whichDaysTxt);
+      const day1Match = /sunday|3\/8|3\/15/i.test(whichDaysTxt);
+      friday = day0Match;
+      saturday = day1Match;
+    }
+    if (!friday && !saturday) continue;
 
-		let cannotScout = /yes|true|1/i.test(g(row, 'cannotScout'));
-		if (idHit(noScouting, email, name)) cannotScout = true;
+    let cannotScout = /yes|true|1/i.test(g(row, 'cannotScout'));
+    if (idHit(noScouting, email, name)) cannotScout = true;
 
-		out.push({
-			name: name || 'Unknown',
-			email,
-			wantsPits,
-			wantsMechPit,
-			wantsCtrlsPit,
-			wantsSwPit,
-			wantsJournalism,
-			wantsStrategy,
-			wantsMedia,
-			driveTeam,
-			cannotScout,
-			unavailableTimes: g(row, 'unavailableTimes') || g(row, 'timesOfDay'),
-			conventionTalks: g(row, 'conventionTalks'),
-			friday,
-			saturday
-		});
-	}
+    out.push({
+      name: name || 'Unknown',
+      email,
+      wantsPits,
+      wantsMechPit,
+      wantsCtrlsPit,
+      wantsSwPit,
+      wantsJournalism,
+      wantsStrategy,
+      wantsMedia,
+      driveTeam,
+      cannotScout,
+      unavailableTimes: g(row, 'unavailableTimes') || g(row, 'timesOfDay'),
+      conventionTalks: g(row, 'conventionTalks'),
+      friday,
+      saturday,
+    });
+  }
 
-	return out;
+  return out;
 }
 
 function reqAt(req, role, blkIdx, k) {
-	const r = req[role];
-	if (!r) return 0;
-	const v = r[k];
-	return Array.isArray(v) ? (v[blkIdx] ?? 0) : (v ?? 0);
+  const r = req[role];
+  if (!r) return 0;
+  const v = r[k];
+  return Array.isArray(v) ? (v[blkIdx] ?? 0) : (v ?? 0);
 }
 
 function roleAffinity(sub, role, pitLeadIds, noStrategy) {
-	if (!sub) return -999;
-	const ns = noStrategy || [];
-	if (role === 'Drive') return sub.driveTeam ? 1000 : -1000;
-	if (sub.driveTeam) return -500;
+  if (!sub) return -999;
+  const ns = noStrategy || [];
+  if (role === 'Drive') return sub.driveTeam ? 1000 : -1000;
+  if (sub.driveTeam) return -500;
 
-	if (role === 'Pit Lead') return pitLd(sub, pitLeadIds) ? 120 : sub.wantsPits ? 12 : -5;
-	if (role === 'Pits') return sub.wantsPits ? 30 : -6;
-	if (role === 'Strategy')
-		return sub.wantsStrategy ? 25 : idHit(ns, sub.email, sub.name) ? -1000 : -6;
-	if (role === 'Media') return sub.wantsMedia ? 24 : -5;
-	if (role === 'Journalist') return sub.wantsJournalism ? 24 : -5;
-	if (role === SCT) return sub.cannotScout ? -1000 : 10;
-	if (role === 'Open') return 0;
-	return -1;
+  if (role === 'Pit Lead') return pitLd(sub, pitLeadIds) ? 120 : (sub.wantsPits ? 12 : -5);
+  if (role === 'Pits') return sub.wantsPits ? 30 : -6;
+  if (role === 'Strategy') return sub.wantsStrategy ? 25 : (idHit(ns, sub.email, sub.name) ? -1000 : -6);
+  if (role === 'Media') return sub.wantsMedia ? 24 : -5;
+  if (role === 'Journalist') return sub.wantsJournalism ? 24 : -5;
+  if (role === SCT) return sub.cannotScout ? -1000 : 10;
+  if (role === 'Open') return 0;
+  return -1;
 }
 
 function isUnavailable(sub, blkLabel, blkIdx) {
-	if (!sub || !sub.unavailableTimes) return false;
-	const t = String(sub.unavailableTimes).toLowerCase();
-	if (/^match\s*\d+/i.test(blkLabel)) {
-		const n = blkIdx + 1;
-		if (t.includes(`match ${n}`) || t.includes(`match${n}`)) return true;
-	}
-	const st = (blkLabel.split('-')[0] || '').replace(':', '');
-	return !!st && t.includes(st);
+  if (!sub || !sub.unavailableTimes) return false;
+  const t = String(sub.unavailableTimes).toLowerCase();
+  if (/^match\s*\d+/i.test(blkLabel)) {
+    const n = blkIdx + 1;
+    if (t.includes(`match ${n}`) || t.includes(`match${n}`)) return true;
+  }
+  const st = (blkLabel.split('-')[0] || '').replace(':', '');
+  return !!st && t.includes(st);
 }
 
-function isEligible(sub, role, blkIdx, blkLabel, sctCtx, noScouting) {
-	if (!sub) return false;
-	if (isUnavailable(sub, blkLabel, blkIdx)) return false;
+function isEligible(sub, role, blkIdx, blkLabel, sctCtx, noScouting, pitLeadIds) {
+  if (!sub) return false;
+  if (isUnavailable(sub, blkLabel, blkIdx)) return false;
 
-	if (role === 'Drive') return !!sub.driveTeam;
-	if (sub.driveTeam && role !== 'Open') return false;
+  if (role === 'Pit Lead' && !pitLd(sub, pitLeadIds || [])) return false;
 
-	if (role === SCT) {
-		if (sub.cannotScout || idHit(noScouting || [], sub.email, sub.name)) return false;
-		if (!scoutSlotOpen(blkIdx, sctCtx)) return false;
-	}
+  if (role === 'Drive') return !!sub.driveTeam;
+  if (sub.driveTeam && role !== 'Open') return false;
 
-	return true;
+  if (role === SCT) {
+    if (sub.cannotScout || idHit(noScouting || [], sub.email, sub.name)) return false;
+    if (!scoutSlotOpen(blkIdx, sctCtx)) return false;
+  }
+
+  return true;
 }
 
 function buildSubMap(subs) {
-	const m = new Map();
-	for (const s of subs) m.set(s.email, s);
-	return m;
+  const m = new Map();
+  for (const s of subs) m.set(s.email, s);
+  return m;
 }
 
 function calcBurden(p) {
-	return (p.schedule || []).reduce((sum, r) => sum + (BW[r] ?? 0), 0);
+  return (p.schedule || []).reduce((sum, r) => sum + (BW[r] ?? 0), 0);
 }
 
 function clonePeople(people) {
-	return people.map((p) => ({ ...p, schedule: [...(p.schedule || [])] }));
+  return people.map((p) => ({ ...p, schedule: [...(p.schedule || [])] }));
 }
 
 function countRole(people, blkIdx, role) {
-	let c = 0;
-	for (const p of people) if ((p.schedule || [])[blkIdx] === role) c++;
-	return c;
+  let c = 0;
+  for (const p of people) if ((p.schedule || [])[blkIdx] === role) c++;
+  return c;
 }
 
 function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
-	const sMap = buildSubMap(subs);
-	const { sctCtx, pitLeadIds, noStrategy, noScouting } = schedCtx;
-	const nBlk = blocks.length;
-	const people = subs.map((s) => ({
-		name: shortName(s.name),
-		email: s.email,
-		schedule: new Array(nBlk).fill('Open')
-	}));
+  const sMap = buildSubMap(subs);
+  const { sctCtx, pitLeadIds, noStrategy, noScouting } = schedCtx;
+  const nBlk = blocks.length;
+  const people = subs.map((s) => ({ name: shortName(s.name), email: s.email, schedule: new Array(nBlk).fill('Open') }));
 
-	const pickCandidates = (blkIdx, role, onlyPreferred = false) => {
-		const blk = blocks[blkIdx];
-		let cands = people.filter((p) => {
-			if ((p.schedule || [])[blkIdx] !== 'Open') return false;
-			const sub = sMap.get(p.email);
-			if (!isEligible(sub, role, blkIdx, blk, sctCtx, noScouting)) return false;
-			if (onlyPreferred && roleAffinity(sub, role, pitLeadIds, noStrategy) <= 0) return false;
-			return true;
-		});
+  const pickCandidates = (blkIdx, role, onlyPreferred = false) => {
+    const blk = blocks[blkIdx];
+    let cands = people.filter((p) => {
+      if ((p.schedule || [])[blkIdx] !== 'Open') return false;
+      const sub = sMap.get(p.email);
+      if (!isEligible(sub, role, blkIdx, blk, sctCtx, noScouting, pitLeadIds)) return false;
+      if (onlyPreferred && roleAffinity(sub, role, pitLeadIds, noStrategy) <= 0) return false;
+      return true;
+    });
 
-		cands = cands.sort((a, b) => {
-			const sa =
-				roleAffinity(sMap.get(a.email), role, pitLeadIds, noStrategy) -
-				calcBurden(a) * 0.2 +
-				Math.random() * 0.01;
-			const sb =
-				roleAffinity(sMap.get(b.email), role, pitLeadIds, noStrategy) -
-				calcBurden(b) * 0.2 +
-				Math.random() * 0.01;
-			return sb - sa;
-		});
+    cands = cands.sort((a, b) => {
+      const sa = roleAffinity(sMap.get(a.email), role, pitLeadIds, noStrategy) - calcBurden(a) * 0.2 + (Math.random() * 0.01);
+      const sb = roleAffinity(sMap.get(b.email), role, pitLeadIds, noStrategy) - calcBurden(b) * 0.2 + (Math.random() * 0.01);
+      return sb - sa;
+    });
 
-		return cands;
-	};
+    return cands;
+  };
 
-	const assign = (blkIdx, role, target, onlyPreferred = false) => {
-		let n = 0;
-		const cands = pickCandidates(blkIdx, role, onlyPreferred);
-		for (const p of cands) {
-			if (n >= target) break;
-			p.schedule[blkIdx] = role;
-			n++;
-		}
-		return n;
-	};
+  const assign = (blkIdx, role, target, onlyPreferred = false) => {
+    let n = 0;
+    const cands = pickCandidates(blkIdx, role, onlyPreferred);
+    for (const p of cands) {
+      if (n >= target) break;
+      p.schedule[blkIdx] = role;
+      n++;
+    }
+    return n;
+  };
 
-	for (let bi = 0; bi < nBlk; bi++) {
-		const driveTarget = Math.max(
-			reqAt(req, 'Drive', bi, 'min'),
-			Math.min(reqAt(req, 'Drive', bi, 'max'), subs.filter((s) => s.driveTeam).length)
-		);
-		assign(bi, 'Drive', driveTarget, true);
+  for (let bi = 0; bi < nBlk; bi++) {
+    const driveTarget = Math.max(reqAt(req, 'Drive', bi, 'min'), Math.min(reqAt(req, 'Drive', bi, 'max'), subs.filter((s) => s.driveTeam).length));
+    assign(bi, 'Drive', driveTarget, true);
 
-		const orderedHard = ['Pit Lead', 'Pits', 'Strategy', 'Media', 'Journalist'];
-		for (const role of orderedHard) {
-			const mn = reqAt(req, role, bi, 'min');
-			const mx = reqAt(req, role, bi, 'max');
-			assign(bi, role, mn, false);
-			const cur = countRole(people, bi, role);
-			if (cur < mx) assign(bi, role, mx - cur, true);
-		}
+    const orderedHard = ['Pit Lead', 'Pits', 'Strategy', 'Media', 'Journalist'];
+    for (const role of orderedHard) {
+      const mn = reqAt(req, role, bi, 'min');
+      const mx = reqAt(req, role, bi, 'max');
+      assign(bi, role, mn, false);
+      const cur = countRole(people, bi, role);
+      if (cur < mx) assign(bi, role, mx - cur, true);
+    }
 
-		const canScout = scoutSlotOpen(bi, sctCtx);
-		const scoutMn = reqAt(req, SCT, bi, 'min');
-		const scoutMx = reqAt(req, SCT, bi, 'max');
-		if (canScout) {
-			const eligOpen = people.filter((p) => {
-				const sub = sMap.get(p.email);
-				return (
-					p.schedule[bi] === 'Open' && isEligible(sub, SCT, bi, blocks[bi], sctCtx, noScouting)
-				);
-			}).length;
-			const scoutTarget = Math.max(scoutMn, Math.min(scoutMx, eligOpen));
-			assign(bi, SCT, scoutTarget, false);
-		} else if (scoutMn > 0) {
-		}
-	}
+    const canScout = scoutSlotOpen(bi, sctCtx);
+    const scoutMn = reqAt(req, SCT, bi, 'min');
+    const scoutMx = reqAt(req, SCT, bi, 'max');
+    if (canScout) {
+      const eligOpen = people.filter((p) => {
+        const sub = sMap.get(p.email);
+        return p.schedule[bi] === 'Open' && isEligible(sub, SCT, bi, blocks[bi], sctCtx, noScouting, pitLeadIds);
+      }).length;
+      const scoutTarget = Math.max(scoutMn, Math.min(scoutMx, eligOpen));
+      assign(bi, SCT, scoutTarget, false);
+    } else if (scoutMn > 0) {
+    }
+  }
 
-	return people;
+  return people;
 }
 
 function scoreDay(people, subs, blocks, req, schedCtx) {
-	const sMap = buildSubMap(subs);
-	const { sctCtx, pitLeadIds, noStrategy, noScouting } = schedCtx;
-	let score = 0;
-	let hardViol = 0;
+  const sMap = buildSubMap(subs);
+  const { sctCtx, pitLeadIds, noStrategy, noScouting } = schedCtx;
+  let score = 0;
+  let hardViol = 0;
 
-	for (let bi = 0; bi < blocks.length; bi++) {
-		const roleCounts = {};
+  for (let bi = 0; bi < blocks.length; bi++) {
+    const roleCounts = {};
 
-		for (const p of people) {
-			const r = (p.schedule || [])[bi] || 'Open';
-			roleCounts[r] = (roleCounts[r] || 0) + 1;
-			const sub = sMap.get(p.email);
+    for (const p of people) {
+      const r = (p.schedule || [])[bi] || 'Open';
+      roleCounts[r] = (roleCounts[r] || 0) + 1;
+      const sub = sMap.get(p.email);
 
-			if (!isEligible(sub, r, bi, blocks[bi], sctCtx, noScouting)) hardViol++;
-			if (sub && sub.driveTeam && r !== 'Drive' && r !== 'Open') hardViol++;
-			if (r === SCT && !scoutSlotOpen(bi, sctCtx)) hardViol++;
-		}
+      if (!isEligible(sub, r, bi, blocks[bi], sctCtx, noScouting, pitLeadIds)) hardViol++;
+      if (sub && sub.driveTeam && r !== 'Drive' && r !== 'Open') hardViol++;
+      if (r === SCT && !scoutSlotOpen(bi, sctCtx)) hardViol++;
+    }
 
-		for (const role of RL_STAFF) {
-			const mn = reqAt(req, role, bi, 'min');
-			const mx = reqAt(req, role, bi, 'max');
-			const got = roleCounts[role] || 0;
-			if (got < mn) hardViol += mn - got;
-			if (got > mx) hardViol += got - mx;
-		}
-	}
+    for (const role of RL_STAFF) {
+      const mn = reqAt(req, role, bi, 'min');
+      const mx = reqAt(req, role, bi, 'max');
+      const got = roleCounts[role] || 0;
+      if (got < mn) hardViol += (mn - got);
+      if (got > mx) hardViol += (got - mx);
+    }
+  }
 
-	if (hardViol > 0) return -hardViol * HP;
+  if (hardViol > 0) return -hardViol * HP;
 
-	const burdens = people.map(calcBurden);
-	const avgB = burdens.length ? burdens.reduce((a, b) => a + b, 0) / burdens.length : 0;
+  const burdens = people.map(calcBurden);
+  const avgB = burdens.length ? burdens.reduce((a, b) => a + b, 0) / burdens.length : 0;
 
-	for (const p of people) {
-		const sub = sMap.get(p.email);
-		const sch = p.schedule || [];
-		const b = calcBurden(p);
-		const scoutCnt = sch.filter((r) => r === SCT).length;
-		const pitCnt = sch.filter((r) => r === 'Pits' || r === 'Pit Lead').length;
+  for (const p of people) {
+    const sub = sMap.get(p.email);
+    const sch = p.schedule || [];
+    const b = calcBurden(p);
+    const scoutCnt = sch.filter((r) => r === SCT).length;
+    const pitCnt = sch.filter((r) => r === 'Pits' || r === 'Pit Lead').length;
 
-		score -= Math.abs(b - avgB) * 28;
-		score -= scoutCnt * scoutCnt * 1.5;
-		score -= pitCnt * pitCnt * 1.2;
+    score -= Math.abs(b - avgB) * 28;
+    score -= scoutCnt * scoutCnt * 1.5;
+    score -= pitCnt * pitCnt * 1.2;
 
-		for (const r of sch) {
-			const aff = roleAffinity(sub, r, pitLeadIds, noStrategy);
-			if (aff > 0) score += 16;
-			if (aff < 0 && r !== 'Open') score -= 14;
-		}
-	}
+    for (const r of sch) {
+      const aff = roleAffinity(sub, r, pitLeadIds, noStrategy);
+      if (aff > 0) score += 16;
+      if (aff < 0 && r !== 'Open') score -= 14;
+    }
+  }
 
-	return score;
+  return score;
 }
 
 function mutateDaySchedule(people, subs, blocks, schedCtx) {
-	if (!people.length || !blocks.length) return null;
+  if (!people.length || !blocks.length) return null;
 
-	const sMap = buildSubMap(subs);
-	const { sctCtx, noScouting } = schedCtx;
-	const next = clonePeople(people);
-	const bi = Math.floor(Math.random() * blocks.length);
-	const blk = blocks[bi];
+  const sMap = buildSubMap(subs);
+  const { sctCtx, noScouting } = schedCtx;
+  const next = clonePeople(people);
+  const bi = Math.floor(Math.random() * blocks.length);
+  const blk = blocks[bi];
 
-	const aIdx = Math.floor(Math.random() * next.length);
-	const bIdx = Math.floor(Math.random() * next.length);
-	if (aIdx === bIdx) return null;
+  const aIdx = Math.floor(Math.random() * next.length);
+  const bIdx = Math.floor(Math.random() * next.length);
+  if (aIdx === bIdx) return null;
 
-	const a = next[aIdx];
-	const b = next[bIdx];
-	const ra = (a.schedule || [])[bi] || 'Open';
-	const rb = (b.schedule || [])[bi] || 'Open';
+  const a = next[aIdx];
+  const b = next[bIdx];
+  const ra = (a.schedule || [])[bi] || 'Open';
+  const rb = (b.schedule || [])[bi] || 'Open';
 
-	if (!isEligible(sMap.get(a.email), rb, bi, blk, sctCtx, noScouting)) return null;
-	if (!isEligible(sMap.get(b.email), ra, bi, blk, sctCtx, noScouting)) return null;
+  if (!isEligible(sMap.get(a.email), rb, bi, blk, sctCtx, noScouting, schedCtx.pitLeadIds)) return null;
+  if (!isEligible(sMap.get(b.email), ra, bi, blk, sctCtx, noScouting, schedCtx.pitLeadIds)) return null;
 
-	a.schedule[bi] = rb;
-	b.schedule[bi] = ra;
-	return next;
+  a.schedule[bi] = rb;
+  b.schedule[bi] = ra;
+  return next;
 }
 
 function optimizeDaySchedule(initialPeople, subs, blocks, req, schedCtx, iterCount) {
-	let cur = clonePeople(initialPeople);
-	let best = clonePeople(initialPeople);
-	let curScore = scoreDay(cur, subs, blocks, req, schedCtx);
-	let bestScore = curScore;
+  let cur = clonePeople(initialPeople);
+  let best = clonePeople(initialPeople);
+  let curScore = scoreDay(cur, subs, blocks, req, schedCtx);
+  let bestScore = curScore;
 
-	let temp = 10.0;
-	const nIter = Math.max(100, iterCount || 200);
+  let temp = 10.0;
+  const nIter = Math.max(100, iterCount || 200);
 
-	for (let i = 0; i < nIter; i++) {
-		const cand = mutateDaySchedule(cur, subs, blocks, schedCtx);
-		if (!cand) continue;
+  for (let i = 0; i < nIter; i++) {
+    const cand = mutateDaySchedule(cur, subs, blocks, schedCtx);
+    if (!cand) continue;
 
-		const candScore = scoreDay(cand, subs, blocks, req, schedCtx);
-		const delta = candScore - curScore;
+    const candScore = scoreDay(cand, subs, blocks, req, schedCtx);
+    const delta = candScore - curScore;
 
-		if (delta > 0 || Math.random() < Math.exp(delta / Math.max(0.001, temp))) {
-			cur = cand;
-			curScore = candScore;
-			if (candScore > bestScore) {
-				best = cand;
-				bestScore = candScore;
-			}
-		}
+    if (delta > 0 || Math.random() < Math.exp(delta / Math.max(0.001, temp))) {
+      cur = cand;
+      curScore = candScore;
+      if (candScore > bestScore) {
+        best = cand;
+        bestScore = candScore;
+      }
+    }
 
-		temp *= 0.996;
-	}
+    temp *= 0.996;
+  }
 
-	return best;
+  return best;
 }
 
 async function bldSch(CF) {
-	valCfg(CF);
+  valCfg(CF);
 
-	const { csvPath, columnMap, optimizationIterations = 1, daySchedule } = CF;
+  const {
+    csvPath,
+    columnMap,
+    optimizationIterations = 1,
+    daySchedule,
+  } = CF;
 
-	const plIds = CF.pitLeadIds;
-	const noSct = CF.noScouting;
-	const noStrat = CF.noStrategy || [];
-	const skPpl = CF.skipPeople || [];
+  const plIds = CF.pitLeadIds;
+  const noSct = CF.noScouting;
+  const noStrat = CF.noStrategy || [];
+  const skPpl = CF.skipPeople || [];
 
-	const nDays = daySchedule.length;
+  const nDays = daySchedule.length;
 
-	const dayFilt = [(s) => s.friday === true, (s) => s.saturday === true];
+  const dayFilt = [
+    (s) => s.friday === true,
+    (s) => s.saturday === true,
+  ];
 
-	const dayLbl = daySchedule.map((d) => d.label);
+  const dayLbl = daySchedule.map((d) => d.label);
 
-	const showIx = CF.showOnlyDay != null ? CF.showOnlyDay : 0;
+  const showIx = CF.showOnlyDay != null ? CF.showOnlyDay : 0;
 
-	let subs = [];
-	if (Array.isArray(CF.subs) && CF.subs.length > 0) {
-		// console.log('using cf subs');
-		// console.log('cf subs', CF.subs);
-		subs = CF.subs.slice();
-		// console.log('new subs', subs);
-	} else {
-		// console.log('making own subs');
-		try {
-			const csv = await fs.readFile(csvPath, 'utf8');
-			subs = parseSubs(parseCSV(csv), columnMap, {
-				noScouting: noSct,
-				driveTeamExtra: CF.driveTeamExtra || []
-			});
-			subs = subs.filter((s) => !idHit(skPpl, s.email, s.name));
-		} catch (e) {
-			console.warn('no csv', csvPath, e.message);
-		}
-	}
+  let nxLbl = null;
+  if (CF.useNexusMatchLabels && CF.nexusEventKey && (CF.nexusApiKey || process.env.NEXUS_API_KEY)) {
+    nxLbl = await fetchNexusMatches(CF.nexusEventKey, CF.nexusApiKey || process.env.NEXUS_API_KEY);
+  }
 
-	const nSeeds = Math.max(
-		2,
-		Math.min(10, Math.floor((Number(optimizationIterations) || 1) / 150) + 2)
-	);
+  let subs = [];
+  if (Array.isArray(CF.subs) && CF.subs.length > 0) {
+    subs = CF.subs.slice();
+  } else {
+    try {
+      const csv = await fs.readFile(csvPath, 'utf8');
+      subs = parseSubs(parseCSV(csv), columnMap, {
+        noScouting: noSct,
+        driveTeamExtra: CF.driveTeamExtra || [],
+      });
+      subs = subs.filter((s) => !idHit(skPpl, s.email, s.name));
+    } catch (e) {
+      console.warn('no csv', csvPath, e.message);
+    }
+  }
 
-	const days = [];
-	// console.log(nDays);
-	for (let di = 0; di < nDays; di++) {
-		const filt = dayFilt[di];
-		const baseSubs = filt ? subs.filter(filt) : subs;
-		// console.log(baseSubs);
+  const nSeeds = Math.max(2, Math.min(10, Math.floor((Number(optimizationIterations) || 1) / 150) + 2));
 
-		const dc = daySchedule[di];
-		const { labels: matchLabels, windows: matchWindows } = genMatchBlocksFromDay(dc);
-		let blocks = matchLabels;
-		let blockWindows = matchWindows;
+  const days = [];
+  for (let di = 0; di < nDays; di++) {
+    const filt = dayFilt[di];
+    const baseSubs = filt ? subs.filter(filt) : subs;
 
-		const req = ldReq(CF, blocks.length);
-		const sctCtx = dayScoutCtx(dc, blockWindows);
+    const dc = daySchedule[di];
+    const { labels: matchLabels, windows: matchWindows } = genMatchBlocksFromDay(dc);
+    let blocks = matchLabels;
+    let blockWindows = matchWindows;
 
-		const sx = {
-			sctCtx,
-			pitLeadIds: plIds,
-			noStrategy: noStrat,
-			noScouting: noSct
-		};
-		// console.log(sx);
+    if (di === showIx && nxLbl && nxLbl.length > 0) {
+      blocks = nxLbl;
+      blockWindows = nxLbl.map(() => null);
+    }
 
-		let bestPpl = null;
-		let bestScr = -Infinity;
+    const req = ldReq(CF, blocks.length);
+    const sctCtx = dayScoutCtx(dc, blockWindows);
 
-		for (let si = 0; si < nSeeds; si++) {
-			const subsTry = shuf(baseSubs);
+    const sx = {
+      sctCtx,
+      pitLeadIds: plIds,
+      noStrategy: noStrat,
+      noScouting: noSct,
+    };
 
-			let ppl = buildValidInitialSchedule(subsTry, blocks, req, sx);
-			ppl = optimizeDaySchedule(ppl, subsTry, blocks, req, sx, optimizationIterations);
+    let bestPpl = null;
+    let bestScr = -Infinity;
 
-			const sc = scoreDay(ppl, subsTry, blocks, req, sx);
-			if (sc > bestScr) {
-				bestScr = sc;
-				bestPpl = ppl;
-			}
-		}
+    for (let si = 0; si < nSeeds; si++) {
+      const subsTry = shuf(baseSubs);
 
-		const drvEm = new Set((baseSubs || []).filter((s) => s.driveTeam).map((s) => s.email));
-		const bot = (p) => pitLd(p, plIds) || drvEm.has(p.email);
+      let ppl = buildValidInitialSchedule(subsTry, blocks, req, sx);
+      ppl = optimizeDaySchedule(ppl, subsTry, blocks, req, sx, optimizationIterations);
 
-		const sorted = [...(bestPpl || [])].sort((a, b) => {
-			const ab = bot(a) ? 1 : 0;
-			const bb = bot(b) ? 1 : 0;
-			if (ab !== bb) return ab - bb;
-			return (a.name || '').localeCompare(b.name || '');
-		});
+      const sc = scoreDay(ppl, subsTry, blocks, req, sx);
+      if (sc > bestScr) {
+        bestScr = sc;
+        bestPpl = ppl;
+      }
+    }
 
-		const scoutChk = sorted.map((p) => {
-			const s = baseSubs.find((x) => x.email === p.email);
-			const shouldScout = !s || !s.cannotScout;
-			const scoutingBlocks = (p.schedule || []).filter((x) => x === SCT).length;
-			let st = 'ok';
-			if (!shouldScout) st = 'exempt';
-			else if (scoutingBlocks === 0) st = 'none';
-			else if (scoutingBlocks < 2) st = 'low';
-			return { name: p.name, scoutingBlocks, shouldScout, status: st };
-		});
+    const drvEm = new Set((baseSubs || []).filter((s) => s.driveTeam).map((s) => s.email));
+    const bot = (p) => pitLd(p, plIds) || drvEm.has(p.email);
 
-		days.push({
-			day: di + 1,
-			label: dayLbl[di] || `Day ${di + 1}`,
-			timeBlocks: blocks,
-			blockWindows,
-			people: sorted,
-			scoutCheck: scoutChk
-		});
-	}
+    const sorted = [...(bestPpl || [])].sort((a, b) => {
+      const ab = bot(a) ? 1 : 0;
+      const bb = bot(b) ? 1 : 0;
+      if (ab !== bb) return ab - bb;
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
-	return { days, scheduleMode: 'matches' };
+    const scoutChk = sorted.map((p) => {
+      const s = baseSubs.find((x) => x.email === p.email);
+      const shouldScout = !s || !s.cannotScout;
+      const scoutingBlocks = (p.schedule || []).filter((x) => x === SCT).length;
+      let st = 'ok';
+      if (!shouldScout) st = 'exempt';
+      else if (scoutingBlocks === 0) st = 'none';
+      else if (scoutingBlocks < 2) st = 'low';
+      return { name: p.name, scoutingBlocks, shouldScout, status: st };
+    });
+
+    days.push({
+      day: di + 1,
+      label: dayLbl[di] || `Day ${di + 1}`,
+      timeBlocks: blocks,
+      blockWindows,
+      people: sorted,
+      scoutCheck: scoutChk,
+    });
+  }
+
+  return { days, scheduleMode: 'matches' };
 }
 
 function daysWithRoleEnums(days) {
-	const sctN = STR_TO_ROLE_ENUM[SCT];
-	return (days || []).map((day) => {
-		const people = (day.people || []).map((p) => ({
-			...p,
-			schedule: (p.schedule || []).map((r) =>
-				STR_TO_ROLE_ENUM[r] !== undefined ? STR_TO_ROLE_ENUM[r] : ROLE_ENUM.Open
-			)
-		}));
-		const scoutChk = people.map((p, idx) => {
-			const prev = (day.scoutCheck || [])[idx] || {};
-			const scoutingBlocks = (p.schedule || []).filter((x) => x === sctN).length;
-			let st = 'ok';
-			if (!prev.shouldScout) st = 'exempt';
-			else if (scoutingBlocks === 0) st = 'none';
-			else if (scoutingBlocks < 2) st = 'low';
-			return {
-				name: p.name,
-				scoutingBlocks,
-				shouldScout: prev.shouldScout !== false,
-				status: st
-			};
-		});
-		return { ...day, people, scoutCheck: scoutChk };
-	});
+  const sctN = STR_TO_ROLE_ENUM[SCT];
+  return (days || []).map((day) => {
+    const people = (day.people || []).map((p) => ({
+      ...p,
+      schedule: (p.schedule || []).map((r) => (STR_TO_ROLE_ENUM[r] !== undefined ? STR_TO_ROLE_ENUM[r] : ROLE_ENUM.Open)),
+    }));
+    const scoutChk = people.map((p, idx) => {
+      const prev = (day.scoutCheck || [])[idx] || {};
+      const scoutingBlocks = (p.schedule || []).filter((x) => x === sctN).length;
+      let st = 'ok';
+      if (!prev.shouldScout) st = 'exempt';
+      else if (scoutingBlocks === 0) st = 'none';
+      else if (scoutingBlocks < 2) st = 'low';
+      return {
+        name: p.name,
+        scoutingBlocks,
+        shouldScout: prev.shouldScout !== false,
+        status: st,
+      };
+    });
+    return { ...day, people, scoutCheck: scoutChk };
+  });
 }
 
 /** { days, scheduleMode, builtAt } — persist outside this module if you want a db */
 async function makeSchedule(CF) {
-	const out = await bldSch(CF);
-	const builtAt = new Date().toISOString();
-	if (CF.exportRoleEnums) {
-		return {
-			...out,
-			days: daysWithRoleEnums(out.days),
-			builtAt,
-			roleEncoding: 'Role'
-		};
-	}
-	return { ...out, builtAt };
+  const out = await bldSch(CF);
+  const builtAt = new Date().toISOString();
+  if (CF.exportRoleEnums) {
+    return {
+      ...out,
+      days: daysWithRoleEnums(out.days),
+      builtAt,
+      roleEncoding: 'Role',
+    };
+  }
+  return { ...out, builtAt };
 }
 
 module.exports = { makeSchedule, ROLE_ENUM, STR_TO_ROLE_ENUM };
