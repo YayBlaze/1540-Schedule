@@ -127,7 +127,7 @@ export async function generateSlotsNexus() {
 	date.setHours(23, 59, 59, 999);
 	const endOfDay = date.getTime();
 	const lunchTimes = getLunch();
-	let id = 0;
+	let id = 1;
 	for (let i = 0; i < matches.length; i++) {
 		let match = matches[i];
 		let nextMath = matches[i + 1];

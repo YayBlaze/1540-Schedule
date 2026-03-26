@@ -153,10 +153,10 @@ export async function getCurrentSchedule() {
 }
 
 export async function getScheduleAtSlot(slotNum: number) {
-	const res = db.prepare(`SELECT * FROM schedule`).all();
+	const res: personSchedule[] = db.prepare(`SELECT * FROM schedule`).all();
 	let final = [];
 	for (let person of res) {
-		let role: unknown = person[`slot${slotNum}`];
+		let role = (person as Record<string, string>)[`slot${slotNum}`];
 		final.push({ personUUID: person.personUUID, role: role as Role });
 	}
 	return final;
@@ -242,13 +242,13 @@ async function formatName(firstName: string, lastName: string) {
 }
 
 export async function msToSlot(ms: number) {
-	const slots = await db.prepare('SELECT * FROM slots').all();
-	let num;
-	for (let slot of slots) {
-		console.log(slot.startTimestamp - ms);
-		if (slot.startTimestamp < ms && slot.endTimestamp > ms) {
-			num = slot.slotNumber;
+	const slots = await getSlots();
+	let slot;
+	for (let current of slots) {
+		if (current.startTimestamp < ms && current.endTimestamp > ms) {
+			slot = current;
 		}
 	}
-	return { num: `slot${num}`, label: `${slots.startLabel}-${slots.endLabel}` };
+	if (!slot) slot = slots[0];
+	return { num: `slot${slot.slotNumber}`, label: `${slot.startLabel}-${slot.endLabel}` };
 }
