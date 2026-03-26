@@ -24,7 +24,7 @@
 		</form>
 	</div>
 	<div class="m-auto flex w-[95%] justify-around gap-5">
-		<div class="item h-80">
+		<div class="item h-100">
 			<h1 class="text-xl">People</h1>
 			<p class="text-md pb-1 text-(--grey)">Add and remove people</p>
 			<form
@@ -46,7 +46,7 @@
 				/>
 				<button id="submit" class="button-primary">Add</button>
 			</form>
-			<div class="max-h-47 overflow-scroll">
+			<div class="max-h-69 overflow-scroll">
 				{#each people as person}
 					<div
 						class="mb-1 flex items-center justify-between rounded-xl border border-(--white) p-2"
@@ -68,7 +68,7 @@
 				{/each}
 			</div>
 		</div>
-		<div class="item h-80">
+		<div class="item h-100">
 			<h1 class="text-xl">People to Roles</h1>
 			<p class="text-md pb-1 text-(--grey)">Assign people to different role pools</p>
 			<form
@@ -98,7 +98,7 @@
 				</select>
 				<button id="submit" class="button-primary">Assign</button>
 			</form>
-			<div class="max-h-47 overflow-scroll">
+			<div class="max-h-69 overflow-scroll">
 				{#if people.filter((person) => person.rolePool != null && person.rolePool != RolePool.None && person.attendingEvent).length < 1}
 					<h1 class="p-2 text-center text-xl">No Exceptions</h1>
 				{/if}
