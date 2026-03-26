@@ -100,8 +100,8 @@
 	>
 </nav>
 
-<div class="m-auto mb-10 size-fit overflow-x-scroll rounded-xl bg-(--black2) p-5">
-	{#if view == 'person'}
+{#if view == 'person'}
+	<div class="m-auto mb-10 size-fit overflow-x-scroll rounded-xl bg-(--black2) p-5">
 		<table class="nunito">
 			<thead class="text-sm">
 				<tr>
@@ -136,38 +136,38 @@
 				{/each}
 			</tbody>
 		</table>
-	{:else}
-		<div class="nunito flex size-fit flex-col items-center justify-around">
-			{#each slots as slot}
-				<div class="flex w-[95%] justify-between gap-5 border border-(--white) p-5">
-					<p class="w-fit p-1 font-black text-nowrap">{slot.startLabel}-{slot.endLabel}</p>
-					<div class="flex flex-wrap items-center gap-3">
-						{#each Object.keys(roles[slot.slotNumber]) as role}
-							{#if roles[slot.slotNumber][role as Role].length > 0}
-								<div
-									style="background-color: var({getColor(
-										role as Role
-									)}); color: var({(role as Role) === Role.Strategy || (role as Role) === Role.Open
-										? '--white'
-										: '--black'});"
-									class="flex gap-1.5 rounded-md p-1"
-								>
-									<p class="font-bold">{role}</p>
-									{#each roles[slot.slotNumber][role as Role] as person}
-										<p>{person}</p>
-									{/each}
-								</div>
-							{/if}
-						{/each}
-					</div>
+	</div>
+{:else}
+	<div class="nunito flex size-fit flex-col items-center justify-around gap-5">
+		{#each slots as slot}
+			<div class="flex w-[90%] justify-between gap-5 rounded-md bg-(--black2) p-5">
+				<p class="w-fit p-1 font-black text-nowrap">{slot.startLabel}-{slot.endLabel}</p>
+				<div class="flex flex-wrap items-center gap-3">
+					{#each Object.keys(roles[slot.slotNumber]) as role}
+						{#if roles[slot.slotNumber][role as Role].length > 0}
+							<div
+								style="background-color: var({getColor(
+									role as Role
+								)}); color: var({(role as Role) === Role.Strategy || (role as Role) === Role.Open
+									? '--white'
+									: '--black'});"
+								class="flex gap-1.5 rounded-md p-1"
+							>
+								<p class="font-bold">{role}</p>
+								{#each roles[slot.slotNumber][role as Role] as person}
+									<p>{person}</p>
+								{/each}
+							</div>
+						{/if}
+					{/each}
 				</div>
-			{/each}
-		</div>
-	{/if}
-</div>
+			</div>
+		{/each}
+	</div>
+{/if}
 
 <div
-	class="m-auto flex h-fit w-[90%] flex-col gap-2 overflow-x-scroll rounded-xl bg-(--black2) p-5"
+	class="m-auto mt-10 flex h-fit w-[90%] flex-col gap-2 overflow-x-scroll rounded-xl bg-(--black2) p-5"
 >
 	{#each schedule as person}
 		<div class="flex items-center gap-2 p-3">
