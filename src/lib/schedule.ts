@@ -1,23 +1,92 @@
 import { getPeople, getSlots, setPersonSchedule, setSlot } from './db';
 import { lunch as getLunch, getLastMatch, ourMatches, formatMatchLabel } from './nexus';
-import { Role } from '$lib/types';
+import { Role, RolePool } from '$lib/types';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const req = createRequire(import.meta.url);
+const __d = dirname(fileURLToPath(import.meta.url));
+const { makeSchedule } = req(join(__d, 'aldous', 'scheduling.js'));
 
 export async function generateSchedule() {
 	await generateSlotsNexus();
 	const people = await getPeople();
 	const slots = await getSlots();
-	for (let person of people) {
-		let schedule = [];
-		let values = Object.values(Role).filter((v) => typeof v === 'number');
-		values.push(Role.Open);
-		for (let i = 0; i < slots.length; i++) {
-			const random = values[Math.floor(Math.random() * values.length)];
-			schedule.push(random);
-		}
-		for (let i = slots.length; i < 11; i++) {
-			schedule.push(null);
-		}
-		await setPersonSchedule(person.uuid, schedule);
+
+	const ppl = (people || []).filter((p) => p && p.attendingEvent !== false);
+	const nSlots = Math.min(11, (slots || []).length);
+
+	const drv = ppl.filter((p) => p.rolePool === RolePool.Drive).length;
+	const pl = ppl.filter((p) => p.rolePool === RolePool.PitLead).length;
+
+	const subs = ppl.map((p) => ({
+		name: p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.uuid,
+		email: p.uuid,
+		wantsPits: (p.preferences && p.preferences.doPits ? p.preferences.doPits : 0) > 0,
+		wantsMechPit: false,
+		wantsCtrlsPit: false,
+		wantsSwPit: false,
+		wantsJournalism: !!(p.preferences && p.preferences.doJournalism),
+		wantsStrategy: !!(p.preferences && p.preferences.doStrategy),
+		wantsMedia: !!(p.preferences && p.preferences.doMedia),
+		driveTeam: p.rolePool === RolePool.Drive,
+		cannotScout: p.rolePool === RolePool.NO_Scouting || p.rolePool === RolePool.Drive || p.rolePool === RolePool.PitLead,
+		unavailableTimes: '',
+		conventionTalks: '',
+		friday: true,
+		saturday: false,
+	}));
+
+	const cfg = {
+		subs,
+		exportRoleEnums: true,
+		useNexusMatchLabels: false,
+		nexusEventKey: null,
+		nexusApiKey: null,
+		showOnlyDay: 0,
+		optimizationIterations: 2000,
+
+		pitLeadIds: subs.filter((s) => ppl.find((p) => p.uuid === s.email)?.rolePool === RolePool.PitLead).map((s) => s.email),
+		noScouting: subs.filter((s) => ppl.find((p) => p.uuid === s.email)?.rolePool === RolePool.NO_Scouting).map((s) => s.email),
+		noStrategy: [],
+		driveTeamExtra: [],
+		skipPeople: [],
+
+		roleStaffing: {
+			Drive: { min: drv, max: drv },
+			Pits: { min: 0, max: 4 },
+			'Pit Lead': { min: pl ? Math.min(2, pl) : 0, max: pl ? Math.min(2, pl) : 0 },
+			Journalist: { min: 0, max: 1 },
+			Strategy: { min: 0, max: 3 },
+			Media: { min: 0, max: 1 },
+			'Scouting!': { min: 0, max: 7 },
+		},
+
+		daySchedule: [
+			{
+				label: 'Today',
+				clock: { start: '08:00', lunchStart: '12:00', lunchEnd: '13:00', end: '18:00' },
+				matchesBeforeLunch: nSlots,
+				matchesAfterLunch: 0
+			}
+		],
+
+		columnMap: { email: 'x', wantsPits: 'x', whichDays: 'x' }
+	};
+
+	const out = await makeSchedule(cfg);
+	const day0 = (out.days || [])[0];
+	const m = new Map<string, (Role | null)[]>();
+	(day0 && day0.people ? day0.people : []).forEach((p: any) => {
+		m.set(String(p.email), (p.schedule || []) as (Role | null)[]);
+	});
+
+	for (let person of ppl) {
+		let sch = (m.get(person.uuid) || []).slice(0, nSlots);
+		for (let i = sch.length; i < nSlots; i++) sch.push(Role.Open);
+		for (let i = sch.length; i < 11; i++) sch.push(null);
+		await setPersonSchedule(person.uuid, sch);
 	}
 }
 
