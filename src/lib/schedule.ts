@@ -1,19 +1,19 @@
 import {
+	clearSchedule,
 	clearSlots,
-	getMilestones,
-	getPeople,
+	getPeopleAtEvent,
 	getSlots,
-	randomizePreferences,
 	setPersonSchedule,
 	setSlot
 } from '$lib/db';
-import { getLunchTimes, ourMatches, formatMatchLabel, getAllianceSelectionTimes } from '$lib/nexus';
+import { getLunchTimes, ourMatches, formatMatchLabel } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { makeSchedule } from '$lib/aldous/scheduling.js';
 
 export async function generateSchedule() {
+	await clearSchedule();
 	await generateSlotsNexus();
-	const people = await getPeople();
+	const people = await getPeopleAtEvent();
 	const slots = await getSlots();
 	const ppl = (people || []).filter((p) => p && p.attendingEvent);
 	const nSlots = Math.min(11, (slots || []).length);

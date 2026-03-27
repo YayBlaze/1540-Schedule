@@ -1,9 +1,9 @@
-import { Database } from 'bun:sqlite';
 import { Role, RolePool, type PersonData, type personSchedule, type Preferences } from './types';
 
 let db: any = null;
 
 export async function initDB() {
+	const { Database } = await import('bun:sqlite');
 	db = new Database('app.db');
 
 	db.run('PRAGMA journal_mode = WAL;');
@@ -65,6 +65,19 @@ export async function initDB() {
 
 export async function getPeople(): Promise<PersonData[]> {
 	const res = db.prepare('SELECT * FROM people ORDER BY firstName').all() as PersonData[];
+	return res.map((data) => {
+		return {
+			...data,
+			rolePool: data.rolePool as RolePool,
+			preferences: JSON.parse(data.preferences as unknown as string)
+		};
+	});
+}
+
+export async function getPeopleAtEvent(): Promise<PersonData[]> {
+	const res = db
+		.prepare('SELECT * FROM people WHERE attendingEvent = true ORDER BY firstName')
+		.all() as PersonData[];
 	return res.map((data) => {
 		return {
 			...data,
@@ -168,6 +181,10 @@ export async function getScheduleAtSlot(slotNum: number) {
 		final.push({ personUUID: person.personUUID, role: role as Role });
 	}
 	return final;
+}
+
+export async function clearSchedule() {
+	return db.prepare('DELETE FROM schedule').run();
 }
 
 export async function getNamesInRole(role: Role, slotNum: number): Promise<string[]> {
