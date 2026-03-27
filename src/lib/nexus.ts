@@ -76,6 +76,20 @@ export async function ourMatches() {
 	);
 }
 
+export function lastMatch() {
+	const date = new Date();
+	date.setDate(27);
+	date.setHours(0, 0, 0, 0);
+	const startOfDay = date.getTime();
+	date.setHours(23, 59, 59, 999);
+	const endOfDay = date.getTime();
+	let matches = data.matches;
+	matches = matches.filter(
+		(v) => v.times.estimatedStartTime < endOfDay && v.times.estimatedStartTime > startOfDay
+	);
+	return matches[matches.length - 1];
+}
+
 export function formatMatchLabel(label: string, negativeOffset: boolean = false) {
 	let number = parseInt(label.split(' ')[1]);
 	if (negativeOffset) number -= 1;

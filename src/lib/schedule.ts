@@ -6,7 +6,7 @@ import {
 	setPersonSchedule,
 	setSlot
 } from '$lib/db';
-import { getLunchTimes, ourMatches, formatMatchLabel } from '$lib/nexus';
+import { getLunchTimes, ourMatches, formatMatchLabel, lastMatch } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { makeSchedule } from '$lib/aldous/scheduling.js';
 
@@ -116,13 +116,25 @@ export async function generateSlotsNexus() {
 	await clearSlots();
 	const matches = await ourMatches();
 	const date = new Date();
-	date.setDate(27);
 	date.setHours(0, 0, 0, 0);
 	const startOfDay = date.getTime();
 	date.setHours(23, 59, 59, 999);
 	const endOfDay = date.getTime();
 	let lunchTimes = getLunchTimes();
+	date.setHours(8, 0, 0, 0);
+	const eventStart = date.getTime();
 	let id = 1;
+	if (matches[0].label.includes('Qualification')) {
+		let slotData = {
+			id,
+			startTimestamp: eventStart,
+			endTimestamp: matches[0].times.scheduledStartTime,
+			startLabel: 'PM1',
+			endLabel: formatMatchLabel(matches[0].label)
+		};
+		await setSlot(slotData);
+		id++;
+	}
 	for (let i = 0; i < matches.length; i++) {
 		let match = matches[i];
 		let nextMath = matches[i + 1];
@@ -130,7 +142,7 @@ export async function generateSlotsNexus() {
 			let slotData = {
 				id,
 				startTimestamp: match.times.estimatedStartTime,
-				endTimestamp: match.times.estimatedStartTime + 5 * 60 * 1000,
+				endTimestamp: lastMatch().times.estimatedStartTime + 5 * 60 * 1000,
 				startLabel: formatMatchLabel(match.label),
 				endLabel: 'End of Day'
 			};
@@ -141,7 +153,7 @@ export async function generateSlotsNexus() {
 			continue;
 		let slotData = {
 			id,
-			startTimestamp: match.times.estimatedStartTime,
+			startTimestamp: match.times.estimatedStartTime ?? match.times.scheduledStartTime,
 			endTimestamp: nextMath.times.estimatedStartTime,
 			startLabel: formatMatchLabel(match.label),
 			endLabel: formatMatchLabel(nextMath.label, true)
