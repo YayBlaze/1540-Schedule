@@ -54,8 +54,8 @@
 
 	function calcRoleTime(role: Role, name: string) {
 		const personSchedule = schedule.find((v) => v.name == name);
-		let correct = [];
 		if (!personSchedule) return 0;
+		let correct = [];
 		for (let i = 0; i < personSchedule.slots.length; i++) {
 			let slot = personSchedule.slots[i];
 			if ((slot as Role) === (role as Role)) correct.push(slots[i]);

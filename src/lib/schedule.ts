@@ -4,17 +4,10 @@ import {
 	getPeople,
 	getSlots,
 	randomizePreferences,
-	setMilestone,
 	setPersonSchedule,
 	setSlot
 } from '$lib/db';
-import {
-	getLunchTimes,
-	getLastMatch,
-	ourMatches,
-	formatMatchLabel,
-	getAllianceSelectionTimes
-} from '$lib/nexus';
+import { getLunchTimes, ourMatches, formatMatchLabel, getAllianceSelectionTimes } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -25,7 +18,6 @@ const __d = dirname(fileURLToPath(import.meta.url));
 const { makeSchedule } = req(join(__d, 'aldous', 'scheduling.js'));
 
 export async function generateSchedule() {
-	await randomizePreferences(); // REMOVE FOR PRODUCTION
 	await generateSlotsNexus();
 	const people = await getPeople();
 	const slots = await getSlots();
@@ -77,12 +69,12 @@ export async function generateSchedule() {
 
 		roleStaffing: {
 			Drive: { min: drv, max: drv },
-			Pits: { min: 0, max: 4 },
+			Pits: { min: 2, max: 3 },
 			'Pit Lead': { min: pl ? Math.min(2, pl) : 0, max: pl ? Math.min(2, pl) : 0 },
 			Journalist: { min: 0, max: 1 },
 			Strategy: { min: 0, max: 3 },
 			Media: { min: 0, max: 1 },
-			'Scouting!': { min: 0, max: 7 }
+			'Scouting!': { min: 5, max: 7 }
 		},
 
 		daySchedule: [
@@ -130,39 +122,21 @@ export async function generateSlotsNexus() {
 	await clearSlots();
 	const matches = await ourMatches();
 	const date = new Date();
+	date.setDate(27);
 	date.setHours(0, 0, 0, 0);
 	const startOfDay = date.getTime();
 	date.setHours(23, 59, 59, 999);
 	const endOfDay = date.getTime();
-	let milestoneTimes = await getMilestones();
-	if (!milestoneTimes.find((v) => v.name == 'Lunch')) {
-		let lunchTimes = getLunchTimes();
-		let data = {
-			name: 'Lunch',
-			start: lunchTimes.startTimestamp,
-			end: lunchTimes.endTimestamp
-		};
-		milestoneTimes.push(data);
-	}
-	if (!milestoneTimes.find((v) => v.name == 'Alliance Selection')) {
-		let allianceSelectionTimes = getAllianceSelectionTimes();
-		let data = {
-			name: 'Alliance Selection',
-			start: allianceSelectionTimes.startTimestamp,
-			end: allianceSelectionTimes.endTimestamp
-		};
-		milestoneTimes.push(data);
-	}
+	let lunchTimes = getLunchTimes();
 	let id = 1;
 	for (let i = 0; i < matches.length; i++) {
 		let match = matches[i];
 		let nextMath = matches[i + 1];
 		if (!nextMath || nextMath.times.estimatedStartTime > endOfDay) {
-			const lastMatch = getLastMatch();
 			let slotData = {
 				id,
 				startTimestamp: match.times.estimatedStartTime,
-				endTimestamp: lastMatch.times.estimatedStartTime + 5 * 60 * 1000,
+				endTimestamp: match.times.estimatedStartTime + 5 * 60 * 1000,
 				startLabel: formatMatchLabel(match.label),
 				endLabel: 'End of Day'
 			};
@@ -178,26 +152,28 @@ export async function generateSlotsNexus() {
 			startLabel: formatMatchLabel(match.label),
 			endLabel: formatMatchLabel(nextMath.label, true)
 		};
-		for (let milestone of milestoneTimes) {
-			if (slotData.startTimestamp < milestone.start && slotData.endTimestamp > milestone.end) {
-				console.log(slotData.startLabel, slotData.endLabel);
-				console.log(
-					`for ${milestone.name}`,
-					slotData.startTimestamp,
-					milestone.start,
-					slotData.startTimestamp - milestone.start,
-					slotData.endTimestamp,
-					milestone.end,
-					slotData.endTimestamp - milestone.end
-				);
-				slotData = {
-					id,
-					startTimestamp: match.times.estimatedStartTime,
-					endTimestamp: milestone.start,
-					startLabel: formatMatchLabel(match.label),
-					endLabel: milestone.name
-				};
-			}
+		if (
+			slotData.startTimestamp <= lunchTimes.startTimestamp &&
+			slotData.endTimestamp >= lunchTimes.endTimestamp
+		) {
+			slotData = {
+				id,
+				startTimestamp: match.times.estimatedStartTime,
+				endTimestamp: lunchTimes.startTimestamp,
+				startLabel: formatMatchLabel(match.label),
+				endLabel: 'Lunch'
+			};
+			await setSlot(slotData);
+			id++;
+			i++;
+			nextMath = matches[i + 1];
+			slotData = {
+				id,
+				startTimestamp: lunchTimes.endTimestamp,
+				endTimestamp: nextMath.times.estimatedStartTime,
+				startLabel: 'Lunch',
+				endLabel: formatMatchLabel(nextMath.label)
+			};
 		}
 		await setSlot(slotData);
 		id++;

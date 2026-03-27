@@ -25,13 +25,20 @@ export const load: PageServerLoad = async () => {
 	slots = slots.filter((v) => {
 		return v.startTimestamp > startOfDay && v.startTimestamp < endOfDay;
 	});
-	const lunch = await getLunchTimes();
-	let times = {
-		lunchStart: new Date(lunch.startTimestamp).toLocaleTimeString(),
-		lunchEnd: new Date(lunch.endTimestamp).toLocaleTimeString(),
-		dayStart: new Date(slots[0].startTimestamp).toLocaleTimeString(),
-		dayEnd: new Date(slots[slots.length - 1].endTimestamp).toLocaleTimeString()
-	};
+	const lunch = getLunchTimes();
+	let times;
+	if (lunch && slots.length > 0) {
+		times = {
+			lunchStart: new Date(lunch.startTimestamp).toLocaleTimeString('en-US', { hour12: false }),
+			lunchEnd: new Date(lunch.endTimestamp).toLocaleTimeString('en-US', { hour12: false }),
+			dayStart: new Date(slots[0].startTimestamp).toLocaleTimeString('en-US', { hour12: false }),
+			dayEnd: new Date(slots[slots.length - 1].endTimestamp).toLocaleTimeString('en-US', {
+				hour12: false
+			})
+		};
+	} else {
+		times = {};
+	}
 	return { people, times };
 };
 
@@ -80,6 +87,13 @@ export const actions = {
 		const lunchStart = data.get('lunchStart')?.toString();
 		const lunchEnd = data.get('lunchEnd')?.toString();
 		if (!lunchStart || !lunchEnd) return fail(400);
-		await setMilestone({ name: 'lunch', start: parseInt(lunchStart), end: parseInt(lunchEnd) });
+		const date = new Date();
+		const lunchStartSplit = lunchStart.split(':');
+		const lunchEndSplit = lunchEnd.split(':');
+		date.setHours(parseInt(lunchStartSplit[0]), parseInt(lunchStartSplit[1]), 0, 0);
+		const lunchStartMS = date.getTime();
+		date.setHours(parseInt(lunchEndSplit[0]), parseInt(lunchEndSplit[1]), 0, 0);
+		const lunchEndMS = date.getTime();
+		await setMilestone({ name: 'lunch', start: lunchStartMS, end: lunchEndMS });
 	}
 } satisfies Actions;

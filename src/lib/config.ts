@@ -1,2 +1,2 @@
-export var eventKey = 'demo2653';
-export var team = '100';
+export var eventKey = '2026orore';
+export var team = '1540';

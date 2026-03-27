@@ -6,5 +6,5 @@ export const GET: RequestHandler = async () => {
 	const slot = await msToSlot(Date.now());
 	let pits = await getNamesInRole(Role.Pits, slot.num);
 	let leads = await getNamesInRole(Role.PitLead, slot.num);
-	return json({ pits, leads });
+	return json({ slot: slot.label, pits, leads });
 };

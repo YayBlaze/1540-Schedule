@@ -76,15 +76,6 @@ export async function ourMatches() {
 	);
 }
 
-export function getLastMatch() {
-	const todaysDate = new Date().toLocaleDateString();
-	const todaysMatches = data.matches.filter(
-		(m: nexusMatch) => new Date(m.times.estimatedStartTime).toLocaleDateString() == todaysDate
-	);
-	todaysMatches.sort((a, b) => b.times.estimatedStartTime - a.times.estimatedStartTime);
-	return todaysMatches[0];
-}
-
 export function formatMatchLabel(label: string, negativeOffset: boolean = false) {
 	let number = parseInt(label.split(' ')[1]);
 	if (negativeOffset) number -= 1;
