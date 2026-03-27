@@ -1,10 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@200..1000&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
-body {
-	background-color: #1c1c1c;
+:root {
+	--black: #1c1c1c;
+	--black2: #252525;
+	--white: #e8f3f1;
+	--grey: #a7a7a7;
+	--yellow: #e6c77d;
+	--green1: #a5f6de;
+	--green2: #bacac5;
+	--green3: #4d635c;
+	--purple1: #eedeff;
+	--purple2: #e2baff;
+	--purple3: #b6a7dc;
+	--red: #ee2c2c;
+	--blue: #4ecdc4;
 }
 
-* {
-	color: #fbfbfb;
+body {
+	background-color: var(--black);
+	color: var(--white);
+	font-family: 'Archivo Black', sans-serif;
+	font-weight: 400;
+	font-style: normal;
+}
+
+.nunito {
+	font-family: 'Nunito', sans-serif;
+	font-optical-sizing: auto;
+	font-weight: 400;
+	font-style: normal;
 }
