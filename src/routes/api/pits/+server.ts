@@ -4,7 +4,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async () => {
 	const slot = await msToSlot(Date.now());
-	let pits = await getNamesInRole(Role.Pits, parseInt(slot.num.split('slot')[1]));
-	let leads = await getNamesInRole(Role.PitLead, parseInt(slot.num.split('slot')[1]));
+	let pits = await getNamesInRole(Role.Pits, slot.num);
+	let leads = await getNamesInRole(Role.PitLead, slot.num);
 	return json({ pits, leads });
 };

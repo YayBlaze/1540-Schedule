@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Role } from '$lib/types';
+	import { onDestroy, onMount } from 'svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -8,6 +9,9 @@
 	let schedule = $derived(data.schedule);
 	let slots = $derived(data.slots);
 	let roles = $derived(data.roles);
+	let currentSlot = $derived(data.currentSlot);
+	let nextSlot = $derived(data.nextSlot);
+	let timeToNextSlot = $derived(msToRelative(nextSlot.startTimestamp - Date.now()));
 	let view = $derived(data.view);
 
 	function getColor(role: Role) {
@@ -69,6 +73,16 @@
 	function personView() {
 		goto('/?view=person');
 	}
+
+	let interval: NodeJS.Timeout;
+	onMount(() => {
+		interval = setInterval(
+			() => (timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now())),
+			30 * 1000
+		);
+	});
+
+	onDestroy(() => clearInterval(interval));
 </script>
 
 <nav class="mb-5 flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
@@ -100,6 +114,14 @@
 	>
 </nav>
 
+<div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
+	<p>Current Slot: {currentSlot.label}</p>
+	<p>|</p>
+	<p>
+		Next Slot: {nextSlot.startLabel}-{nextSlot.endLabel} in {timeToNextSlot}
+	</p>
+</div>
+
 {#if view == 'person'}
 	<div class="m-auto mb-10 size-fit overflow-x-scroll rounded-xl bg-(--black2) p-5">
 		<table class="nunito">
@@ -111,7 +133,7 @@
 							class="w-fit bg-[#3c3c3c] p-2 text-nowrap"
 							style="font-weight: {slot.startTimestamp < Date.now() &&
 							slot.endTimestamp > Date.now()
-								? 700
+								? 900
 								: 400};">{slot.startLabel}-{slot.endLabel}</th
 						>
 					{/each}
@@ -143,8 +165,8 @@
 			<div class="flex w-[90%] justify-between gap-5 rounded-md bg-(--black2) p-5">
 				<p class="w-fit p-1 font-black text-nowrap">{slot.startLabel}-{slot.endLabel}</p>
 				<div class="flex flex-wrap items-center gap-3">
-					{#each Object.keys(roles[slot.slotNumber]) as role}
-						{#if roles[slot.slotNumber][role as Role].length > 0}
+					{#each Object.keys(roles[slot.slotNumber - 1]) as role}
+						{#if roles[slot.slotNumber - 1][role as Role].length > 0}
 							<div
 								style="background-color: var({getColor(
 									role as Role
@@ -154,7 +176,7 @@
 								class="flex gap-1.5 rounded-md p-1"
 							>
 								<p class="font-bold">{role}</p>
-								{#each roles[slot.slotNumber][role as Role] as person}
+								{#each roles[slot.slotNumber - 1][role as Role] as person}
 									<p>{person}</p>
 								{/each}
 							</div>

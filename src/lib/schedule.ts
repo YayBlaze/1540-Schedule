@@ -1,12 +1,20 @@
 import {
 	clearSlots,
+	getMilestones,
 	getPeople,
 	getSlots,
 	randomizePreferences,
+	setMilestone,
 	setPersonSchedule,
 	setSlot
 } from '$lib/db';
-import { lunch as getLunch, getLastMatch, ourMatches, formatMatchLabel } from '$lib/nexus';
+import {
+	getLunchTimes,
+	getLastMatch,
+	ourMatches,
+	formatMatchLabel,
+	getAllianceSelectionTimes
+} from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -126,7 +134,25 @@ export async function generateSlotsNexus() {
 	const startOfDay = date.getTime();
 	date.setHours(23, 59, 59, 999);
 	const endOfDay = date.getTime();
-	const lunchTimes = getLunch();
+	let milestoneTimes = await getMilestones();
+	if (!milestoneTimes.find((v) => v.name == 'Lunch')) {
+		let lunchTimes = getLunchTimes();
+		let data = {
+			name: 'Lunch',
+			start: lunchTimes.startTimestamp,
+			end: lunchTimes.endTimestamp
+		};
+		milestoneTimes.push(data);
+	}
+	if (!milestoneTimes.find((v) => v.name == 'Alliance Selection')) {
+		let allianceSelectionTimes = getAllianceSelectionTimes();
+		let data = {
+			name: 'Alliance Selection',
+			start: allianceSelectionTimes.startTimestamp,
+			end: allianceSelectionTimes.endTimestamp
+		};
+		milestoneTimes.push(data);
+	}
 	let id = 1;
 	for (let i = 0; i < matches.length; i++) {
 		let match = matches[i];
@@ -152,17 +178,26 @@ export async function generateSlotsNexus() {
 			startLabel: formatMatchLabel(match.label),
 			endLabel: formatMatchLabel(nextMath.label, true)
 		};
-		if (
-			match.times.estimatedStartTime < lunchTimes.starts &&
-			nextMath.times.estimatedStartTime > lunchTimes.ends
-		) {
-			slotData = {
-				id,
-				startTimestamp: match.times.estimatedStartTime,
-				endTimestamp: lunchTimes.starts,
-				startLabel: formatMatchLabel(match.label),
-				endLabel: 'Lunch'
-			};
+		for (let milestone of milestoneTimes) {
+			if (slotData.startTimestamp < milestone.start && slotData.endTimestamp > milestone.end) {
+				console.log(slotData.startLabel, slotData.endLabel);
+				console.log(
+					`for ${milestone.name}`,
+					slotData.startTimestamp,
+					milestone.start,
+					slotData.startTimestamp - milestone.start,
+					slotData.endTimestamp,
+					milestone.end,
+					slotData.endTimestamp - milestone.end
+				);
+				slotData = {
+					id,
+					startTimestamp: match.times.estimatedStartTime,
+					endTimestamp: milestone.start,
+					startLabel: formatMatchLabel(match.label),
+					endLabel: milestone.name
+				};
+			}
 		}
 		await setSlot(slotData);
 		id++;

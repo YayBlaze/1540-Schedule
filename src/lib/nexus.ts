@@ -21,7 +21,7 @@ export async function fetchData() {
 	data = await response.json();
 }
 
-export function lunch() {
+export function getLunchTimes() {
 	let matchBefore = null;
 	let matchAfter = null;
 	for (let match of data.matches) {
@@ -29,20 +29,43 @@ export function lunch() {
 			matchAfter = match;
 			break;
 		}
-		if (match.breakAfter == 'Lunch' || match.breakAfter == 'Alliance Selection')
-			matchBefore = match;
+		if (match.breakAfter == 'Lunch') matchBefore = match;
 	}
 	if (!matchBefore || !matchAfter) {
 		const date = new Date();
 		date.setHours(11, 0, 0, 0);
-		const starts = date.getTime();
+		const startTimestamp = date.getTime();
 		date.setHours(12, 0, 0, 0);
-		const ends = date.getTime();
-		return { starts, ends };
+		const endTimestamp = date.getTime();
+		return { startTimestamp, endTimestamp };
 	}
 	return {
-		starts: matchBefore.times.estimatedStartTime + 3 * 60 * 1000,
-		ends: matchAfter.times.estimatedStartTime
+		startTimestamp: matchBefore.times.estimatedStartTime + 3 * 60 * 1000,
+		endTimestamp: matchAfter.times.estimatedStartTime
+	};
+}
+
+export function getAllianceSelectionTimes() {
+	let matchBefore = null;
+	let matchAfter = null;
+	for (let match of data.matches) {
+		if (matchBefore != null) {
+			matchAfter = match;
+			break;
+		}
+		if (match.breakAfter == 'Alliance Selection') matchBefore = match;
+	}
+	if (!matchBefore || !matchAfter) {
+		const date = new Date();
+		date.setHours(11, 0, 0, 0);
+		const startTimestamp = date.getTime();
+		date.setHours(12, 0, 0, 0);
+		const endTimestamp = date.getTime();
+		return { startTimestamp, endTimestamp };
+	}
+	return {
+		startTimestamp: matchBefore.times.estimatedStartTime + 3 * 60 * 1000,
+		endTimestamp: matchAfter.times.estimatedStartTime
 	};
 }
 

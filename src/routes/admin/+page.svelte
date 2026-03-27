@@ -5,6 +5,8 @@
 	let { data }: PageProps = $props();
 
 	var people = $derived(data.people);
+	var times = $derived(data.times);
+	var { lunchStart, lunchEnd, dayStart, dayEnd } = $derived(times);
 </script>
 
 <nav class="flex h-fit w-full items-center justify-between bg-(--white) p-2 pr-5 pl-5">
@@ -92,8 +94,6 @@
 				>
 					<option value={RolePool.PitLead}>Pit Lead</option>
 					<option value={RolePool.Drive}>Drive Team</option>
-					<option value={RolePool.ONLY_Scouting}>Scouting Only</option>
-					<option value={RolePool.ONLY_Strategy}>Strategy Only</option>
 					<option value={RolePool.NO_Scouting}>No Scouting</option>
 				</select>
 				<button id="submit" class="button-primary">Assign</button>
@@ -122,29 +122,43 @@
 	<div class="item">
 		<h1 class="text-xl">Competition Settings</h1>
 		<p class="text-md pb-1 text-(--grey)">Set event day timing windows and lunch breaks</p>
-		<div class="flex items-center justify-around gap-2">
+		<form method="post" action="?/saveCompSettings" class="flex items-center justify-around gap-2">
 			<input
 				type="text"
+				name="dayStart"
 				placeholder="Event Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				bind:value={dayStart}
 			/>
 			<input
 				type="text"
+				name="lunchStart"
 				placeholder="Lunch Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				bind:value={lunchStart}
 			/>
 			<input
 				type="text"
+				name="lunchEnd"
 				placeholder="Lunch End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				bind:value={lunchEnd}
 			/>
 			<input
 				type="text"
+				name="dayEnd"
 				placeholder="Event End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				bind:value={dayEnd}
 			/>
-			<button class="button-primary">Save</button>
-		</div>
+			<button
+				id="submit"
+				class="button-primary"
+				onclick={() =>
+					alert('Settings saved, but you need to re-generate the schedule for it to take affect')}
+				>Save</button
+			>
+		</form>
 	</div>
 </div>
 

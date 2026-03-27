@@ -1,4 +1,4 @@
-import { getPeople, getNamesInRole, getSchedule, getSlots } from '$lib/db';
+import { getPeople, getNamesInRole, getSchedule, getSlots, msToSlot } from '$lib/db';
 import { Role } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
 	let roles: Record<string, string[]>[] = [];
 	for (let slot of slots) {
-		let sn = slot.slotNumber + 1;
+		let sn = slot.slotNumber;
 		roles.push({
 			Open: await getNamesInRole(Role.Open, sn),
 			Pits: await getNamesInRole(Role.Pits, sn),
@@ -37,5 +37,18 @@ export const load: PageServerLoad = async ({ url }) => {
 		});
 	}
 
-	return { view, schedule, slots, roles };
+	let currentSlot = await msToSlot(Date.now());
+	let nextSlot = await slots[currentSlot.num];
+	if (!nextSlot) {
+		let currentSlotDetailed = slots[currentSlot.num - 1];
+		nextSlot = {
+			slotNumber: currentSlot.num + 1,
+			startTimestamp: currentSlotDetailed.endTimestamp,
+			endTimestamp: currentSlotDetailed.endTimestamp,
+			startLabel: 'End of Day',
+			endLabel: ''
+		};
+	}
+
+	return { view, schedule, slots, roles, currentSlot, nextSlot };
 };

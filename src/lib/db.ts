@@ -48,6 +48,14 @@ export async function initDB() {
 	`);
 
 	db.run(`
+		CREATE TABLE IF NOT EXISTS milestoneTimes (
+			name TEXT PRIMARY KEY,
+			startTimestamp LONG,
+			endTimestamp LONG
+		)
+	`);
+
+	db.run(`
 		CREATE TABLE IF NOT EXISTS sessions (
 			session_id CHAR(36),
 			session_expire LONG
@@ -149,7 +157,7 @@ export async function getPersonSchedule(personUUID: string) {
 
 export async function getCurrentSchedule() {
 	const slot = await msToSlot(Date.now());
-	return await getScheduleAtSlot(parseInt(slot.num));
+	return await getScheduleAtSlot(slot.num);
 }
 
 export async function getScheduleAtSlot(slotNum: number) {
@@ -205,6 +213,16 @@ export async function clearSlots() {
 	return db.prepare('DELETE FROM slots').run();
 }
 
+export async function getMilestones(): Promise<{ name: string; start: number; end: number }[]> {
+	return db.prepare('SELECT * FROM milestoneTimes').all();
+}
+
+export async function setMilestone(data: { name: string; start: number; end: number }) {
+	return db
+		.prepare('INSERT OR REPLACE INTO milestoneTimes VALUES (?, ?, ?)')
+		.run(data.name, data.start, data.end);
+}
+
 export async function isValidSession(sessionID: string): Promise<boolean> {
 	const res =
 		((await db
@@ -250,5 +268,5 @@ export async function msToSlot(ms: number) {
 		}
 	}
 	if (!slot) slot = slots[0];
-	return { num: `slot${slot.slotNumber}`, label: `${slot.startLabel}-${slot.endLabel}` };
+	return { num: slot.slotNumber, label: `${slot.startLabel}-${slot.endLabel}` };
 }
