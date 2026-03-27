@@ -9,13 +9,7 @@ import {
 } from '$lib/db';
 import { getLunchTimes, ourMatches, formatMatchLabel, getAllianceSelectionTimes } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const req = createRequire(import.meta.url);
-const __d = dirname(fileURLToPath(import.meta.url));
-const { makeSchedule } = req(join(__d, 'aldous', 'scheduling.js'));
+import { makeSchedule } from '$lib/aldous/scheduling.js';
 
 export async function generateSchedule() {
 	await generateSlotsNexus();

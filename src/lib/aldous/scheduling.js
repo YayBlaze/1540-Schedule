@@ -1,6 +1,3 @@
-// const fs = require('fs').promises;
-// const https = require('https');
-
 const RL = ['Drive', 'Pits', 'Pit Lead', 'Journalist', 'Strategy', 'Media'];
 const SCT = 'Scouting!';
 const RL_STAFF = [...RL, SCT];
@@ -767,4 +764,4 @@ async function makeSchedule(CF) {
 	return { ...out, builtAt };
 }
 
-module.exports = { makeSchedule, ROLE_ENUM, STR_TO_ROLE_ENUM };
+export { makeSchedule, ROLE_ENUM, STR_TO_ROLE_ENUM };
