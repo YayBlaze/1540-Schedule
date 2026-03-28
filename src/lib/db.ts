@@ -170,6 +170,7 @@ export async function getPersonSchedule(personUUID: string) {
 
 export async function getCurrentSchedule() {
 	const slot = await msToSlot(Date.now());
+	if (!slot) return [];
 	return await getScheduleAtSlot(slot.num);
 }
 
@@ -284,6 +285,6 @@ export async function msToSlot(ms: number) {
 			slot = current;
 		}
 	}
-	if (!slot) slot = slots[0];
+	if (!slot) return null;
 	return { num: slot.slotNumber, label: `${slot.startLabel}-${slot.endLabel}` };
 }

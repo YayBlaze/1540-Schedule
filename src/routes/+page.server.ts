@@ -38,6 +38,14 @@ export const load: PageServerLoad = async ({ url }) => {
 	}
 
 	let currentSlot = await msToSlot(Date.now());
+	if (!currentSlot) {
+		currentSlot = {
+			num: -1,
+			label: 'None'
+		};
+		let nextSlot = null;
+		return { view, schedule, slots, roles, currentSlot, nextSlot };
+	}
 	let nextSlot = await slots[currentSlot.num];
 	if (!nextSlot) {
 		let currentSlotDetailed = slots[currentSlot.num - 1];

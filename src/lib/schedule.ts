@@ -12,7 +12,7 @@ import { makeSchedule } from '$lib/aldous/scheduling.js';
 
 export async function generateSchedule() {
 	await clearSchedule();
-	await generateSlotsNexus();
+	// await generateSlotsNexus();
 	const people = await getPeopleAtEvent();
 	const slots = await getSlots();
 	const ppl = (people || []).filter((p) => p && p.attendingEvent);

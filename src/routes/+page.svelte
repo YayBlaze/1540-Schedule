@@ -11,7 +11,7 @@
 	let roles = $derived(data.roles);
 	let currentSlot = $derived(data.currentSlot);
 	let nextSlot = $derived(data.nextSlot);
-	let timeToNextSlot = $derived(msToRelative(nextSlot.startTimestamp - Date.now()));
+	let timeToNextSlot = $derived(msToRelative(nextSlot?.startTimestamp ?? Date.now() - Date.now()));
 	let view = $derived(data.view);
 
 	function getColor(role: Role) {
@@ -76,10 +76,9 @@
 
 	let interval: NodeJS.Timeout;
 	onMount(() => {
-		interval = setInterval(
-			() => (timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now())),
-			30 * 1000
-		);
+		interval = setInterval(() => {
+			if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
+		}, 30 * 1000);
 	});
 
 	onDestroy(() => clearInterval(interval));
@@ -116,10 +115,12 @@
 
 <div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
 	<p>Current Slot: {currentSlot.label}</p>
-	<p>|</p>
-	<p>
-		Next Slot: {nextSlot.startLabel}-{nextSlot.endLabel} in {timeToNextSlot}
-	</p>
+	{#if nextSlot}
+		<p>|</p>
+		<p>
+			Next Slot: {nextSlot.startLabel}-{nextSlot.endLabel} in {timeToNextSlot}
+		</p>
+	{/if}
 </div>
 
 {#if view == 'person'}
@@ -134,7 +135,10 @@
 							style="font-weight: {slot.startTimestamp < Date.now() &&
 							slot.endTimestamp > Date.now()
 								? 900
-								: 400};">{slot.startLabel}-{slot.endLabel}</th
+								: 400}; color: var({slot.startTimestamp < Date.now() &&
+							slot.endTimestamp > Date.now()
+								? '--yellow'
+								: '--white'})">{slot.startLabel}-{slot.endLabel}</th
 						>
 					{/each}
 				</tr>
