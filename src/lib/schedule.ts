@@ -1,19 +1,30 @@
 import {
 	clearSchedule,
 	clearSlots,
-	getMilestones,
 	getPeopleAtEvent,
 	getSlots,
 	setPersonSchedule,
 	setSlot
 } from '$lib/db';
-import { getLunchTimes, ourMatches, formatMatchLabel, lastMatch } from '$lib/nexus';
+import { getLunchTimes, ourMatches, formatMatchLabel, lastMatch, getEventTimes } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { makeSchedule } from '$lib/aldous/scheduling.js';
 
 export async function generateSchedule() {
 	await clearSchedule();
-	await generateSlotsDummy();
+	await generateSlotsNexus();
+	const eventTimesMS = await getEventTimes();
+	const eventTimesString = {
+		dayStart: new Date(eventTimesMS.dayStart).toLocaleTimeString('en-US', { hour12: false }),
+		dayEnd: new Date(eventTimesMS.dayEnd).toLocaleTimeString('en-US', { hour12: false })
+	};
+	const lunchTimesMS = await getLunchTimes();
+	const lunchTimesString = {
+		lunchStart: new Date(lunchTimesMS.startTimestamp).toLocaleTimeString('en-US', {
+			hour12: false
+		}),
+		lunchEnd: new Date(lunchTimesMS.endTimestamp).toLocaleTimeString('en-US', { hour12: false })
+	};
 	const people = await getPeopleAtEvent();
 	const slots = await getSlots();
 	const ppl = (people || []).filter((p) => p && p.attendingEvent);
@@ -75,7 +86,12 @@ export async function generateSchedule() {
 		daySchedule: [
 			{
 				label: 'Today',
-				clock: { start: '08:00', lunchStart: '12:00', lunchEnd: '13:00', end: '18:00' },
+				clock: {
+					start: eventTimesString.dayStart,
+					lunchStart: lunchTimesString.lunchStart,
+					lunchEnd: lunchTimesString.lunchEnd,
+					end: eventTimesString.dayEnd
+				},
 				matchesBeforeLunch: nSlots,
 				matchesAfterLunch: 0
 			}
@@ -92,7 +108,8 @@ export async function generateSchedule() {
 		4: Role.Scouting,
 		5: Role.Strategy,
 		6: Role.Media,
-		7: Role.Journalism
+		7: Role.Journalism,
+		8: Role.TiaraJudge
 	};
 
 	const out = await makeSchedule(cfg);
@@ -116,36 +133,24 @@ export async function generateSchedule() {
 export async function generateSlotsNexus() {
 	await clearSlots();
 	const matches = await ourMatches();
-	const milestoneTimes = await getMilestones();
-	const dbEventTimes = milestoneTimes.find((v) => v.name == 'event');
-	const date = new Date();
-	let dayStart;
-	let dayEnd;
-	let lunchTimes = await getLunchTimes();
-	if (dbEventTimes) {
-		dayStart = dbEventTimes.startTimestamp;
-		dayEnd = dbEventTimes.endTimestamp;
-	} else {
-		date.setHours(0, 0, 0, 0);
-		dayStart = date.getTime();
-		date.setHours(23, 59, 59, 99);
-		dayEnd = date.getTime();
-	}
+	const lunchTimes = await getLunchTimes();
+	const { dayStart, dayEnd } = await getEventTimes();
+	const matchesToday = matches.filter(
+		(m) => m.times.estimatedStartTime > dayStart && m.times.estimatedQueueTime < dayEnd
+	);
 	let id = 1;
-	if (matches[0].label.includes('Qualification')) {
-		let slotData = {
-			id,
-			startTimestamp: dayStart,
-			endTimestamp: matches[0].times.scheduledStartTime,
-			startLabel: 'PM1',
-			endLabel: formatMatchLabel(matches[0].label)
-		};
-		await setSlot(slotData);
-		id++;
-	}
-	for (let i = 0; i < matches.length; i++) {
-		let match = matches[i];
-		let nextMath = matches[i + 1];
+	let slotData = {
+		id,
+		startTimestamp: dayStart,
+		endTimestamp: matchesToday[0].times.estimatedStartTime,
+		startLabel: 'Start of Day',
+		endLabel: formatMatchLabel(matchesToday[0].label, true)
+	};
+	await setSlot(slotData);
+	id++;
+	for (let i = 0; i < matchesToday.length; i++) {
+		let match = matchesToday[i];
+		let nextMath = matchesToday[i + 1];
 		if (!nextMath || nextMath.times.estimatedStartTime > dayEnd) {
 			let slotData = {
 				id,
@@ -180,7 +185,7 @@ export async function generateSlotsNexus() {
 			await setSlot(slotData);
 			id++;
 			i++;
-			nextMath = matches[i + 1];
+			nextMath = matchesToday[i + 1];
 			slotData = {
 				id,
 				startTimestamp: lunchTimes.endTimestamp,
@@ -196,20 +201,7 @@ export async function generateSlotsNexus() {
 export async function generateSlotsDummy() {
 	await clearSlots();
 	let matchNum = 0;
-	const milestoneTimes = await getMilestones();
-	const dbEventTimes = milestoneTimes.find((v) => v.name == 'event');
-	const date = new Date();
-	let dayStart;
-	let dayEnd;
-	if (dbEventTimes) {
-		dayStart = dbEventTimes.startTimestamp;
-		dayEnd = dbEventTimes.endTimestamp;
-	} else {
-		date.setHours(0, 0, 0, 0);
-		dayStart = date.getTime();
-		date.setHours(23, 59, 59, 99);
-		dayEnd = date.getTime();
-	}
+	const { dayStart, dayEnd } = await getEventTimes();
 	let startTimestamp = dayStart;
 	for (let id = 1; id <= 11; id++) {
 		if (startTimestamp > dayEnd) break;

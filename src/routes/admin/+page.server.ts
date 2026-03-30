@@ -2,6 +2,7 @@ import {
 	changePersonStatus,
 	getPeople,
 	getSlots,
+	removeMilestone,
 	removePerson,
 	setMilestone,
 	updateRolePool
@@ -12,6 +13,7 @@ import { RolePool } from '$lib/types';
 import { addPerson } from '$lib/db';
 import { generateSchedule } from '$lib/schedule';
 import { getLunchTimes } from '$lib/nexus';
+import { getEventTimes } from '$lib/nexus';
 
 export const load: PageServerLoad = async () => {
 	const people = await getPeople();
@@ -26,15 +28,14 @@ export const load: PageServerLoad = async () => {
 		return v.startTimestamp > startOfDay && v.startTimestamp < endOfDay;
 	});
 	const lunch = await getLunchTimes();
+	const { dayStart, dayEnd } = await getEventTimes();
 	let times;
-	if (lunch && slots.length > 0) {
+	if (lunch) {
 		times = {
 			lunchStart: new Date(lunch.startTimestamp).toLocaleTimeString('en-US', { hour12: false }),
 			lunchEnd: new Date(lunch.endTimestamp).toLocaleTimeString('en-US', { hour12: false }),
-			dayStart: new Date(slots[0].startTimestamp).toLocaleTimeString('en-US', { hour12: false }),
-			dayEnd: new Date(slots[slots.length - 1].endTimestamp).toLocaleTimeString('en-US', {
-				hour12: false
-			})
+			dayStart: new Date(dayStart).toLocaleTimeString('en-US', { hour12: false }),
+			dayEnd: new Date(dayEnd).toLocaleTimeString('en-US', { hour12: false })
 		};
 	} else {
 		times = {};
@@ -88,23 +89,30 @@ export const actions = {
 		const lunchEnd = data.get('lunchEnd')?.toString();
 		const dayStart = data.get('dayStart')?.toString();
 		const dayEnd = data.get('dayEnd')?.toString();
-		if (!lunchStart || !lunchEnd || !dayStart || !dayEnd) return fail(400);
 
 		const date = new Date();
-		const lunchStartSplit = lunchStart.split(':');
-		const lunchEndSplit = lunchEnd.split(':');
-		date.setHours(parseInt(lunchStartSplit[0]), parseInt(lunchStartSplit[1]), 0, 0);
-		const lunchStartMS = date.getTime();
-		date.setHours(parseInt(lunchEndSplit[0]), parseInt(lunchEndSplit[1]), 0, 0);
-		const lunchEndMS = date.getTime();
-		await setMilestone({ name: 'lunch', start: lunchStartMS, end: lunchEndMS });
+		if (lunchStart && lunchStart != '' && lunchEnd && lunchEnd != '') {
+			const lunchStartSplit = lunchStart.split(':');
+			const lunchEndSplit = lunchEnd.split(':');
+			date.setHours(parseInt(lunchStartSplit[0]), parseInt(lunchStartSplit[1]), 0, 0);
+			const lunchStartMS = date.getTime();
+			date.setHours(parseInt(lunchEndSplit[0]), parseInt(lunchEndSplit[1]), 0, 0);
+			const lunchEndMS = date.getTime();
+			await setMilestone({ name: 'lunch', start: lunchStartMS, end: lunchEndMS });
+		} else {
+			await removeMilestone('lunch');
+		}
 
-		const dayStartSplit = dayStart.split(':');
-		const dayEndSplit = dayEnd.split(':');
-		date.setHours(parseInt(dayStartSplit[0]), parseInt(dayStartSplit[1]), 0, 0);
-		const dayStartMS = date.getTime();
-		date.setHours(parseInt(dayEndSplit[0]), parseInt(dayEndSplit[1]), 0, 0);
-		const dayEndMS = date.getTime();
-		await setMilestone({ name: 'event', start: dayStartMS, end: dayEndMS });
+		if (dayStart && dayStart != '' && dayEnd && dayEnd != '') {
+			const dayStartSplit = dayStart.split(':');
+			const dayEndSplit = dayEnd.split(':');
+			date.setHours(parseInt(dayStartSplit[0]), parseInt(dayStartSplit[1]), 0, 0);
+			const dayStartMS = date.getTime();
+			date.setHours(parseInt(dayEndSplit[0]), parseInt(dayEndSplit[1]), 0, 0);
+			const dayEndMS = date.getTime();
+			await setMilestone({ name: 'event', start: dayStartMS, end: dayEndMS });
+		} else {
+			await removeMilestone('event');
+		}
 	}
 } satisfies Actions;

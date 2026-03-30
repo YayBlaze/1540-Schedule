@@ -243,6 +243,10 @@ export async function setMilestone(data: { name: string; start: number; end: num
 		.run(data.name, data.start, data.end);
 }
 
+export async function removeMilestone(name: string) {
+	return db.prepare('DELETE FROM milestoneTimes WHERE name = ?').run(name);
+}
+
 export async function isValidSession(sessionID: string): Promise<boolean> {
 	const res =
 		((await db

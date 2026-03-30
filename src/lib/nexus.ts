@@ -22,6 +22,21 @@ export async function fetchData() {
 	data = await response.json();
 }
 
+export async function getEventTimes() {
+	const milestoneTimes = await getMilestones();
+	const dbEventTimes = milestoneTimes.find((v) => v.name == 'event');
+	let dayStart;
+	let dayEnd;
+	if (dbEventTimes) {
+		dayStart = dbEventTimes.startTimestamp;
+		dayEnd = dbEventTimes.endTimestamp;
+	} else {
+		dayStart = firstMatch().times.estimatedStartTime;
+		dayEnd = lastMatch().times.estimatedStartTime + 5 * 60 * 1000;
+	}
+	return { dayStart, dayEnd };
+}
+
 export async function getLunchTimes() {
 	const dbMilestones = await getMilestones();
 	const dbLunch = dbMilestones.find((v) => v.name == 'lunch');
@@ -83,7 +98,6 @@ export async function ourMatches() {
 
 export function lastMatch() {
 	const date = new Date();
-	date.setDate(27);
 	date.setHours(0, 0, 0, 0);
 	const startOfDay = date.getTime();
 	date.setHours(23, 59, 59, 999);
@@ -93,6 +107,19 @@ export function lastMatch() {
 		(v) => v.times.estimatedStartTime < endOfDay && v.times.estimatedStartTime > startOfDay
 	);
 	return matches[matches.length - 1];
+}
+
+export function firstMatch() {
+	const date = new Date();
+	date.setHours(0, 0, 0, 0);
+	const startOfDay = date.getTime();
+	date.setHours(23, 59, 59, 999);
+	const endOfDay = date.getTime();
+	let matches = data.matches;
+	matches = matches.filter(
+		(v) => v.times.estimatedStartTime < endOfDay && v.times.estimatedStartTime > startOfDay
+	);
+	return matches[0];
 }
 
 export function formatMatchLabel(label: string, negativeOffset: boolean = false) {
