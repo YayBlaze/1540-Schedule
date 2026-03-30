@@ -40,7 +40,7 @@ export const load: PageServerLoad = async () => {
 	} else {
 		times = {};
 	}
-	return { people, times };
+	return { people, times, date: new Date(dayStart).toLocaleDateString('en-US') };
 };
 
 export const actions = {
@@ -89,8 +89,17 @@ export const actions = {
 		const lunchEnd = data.get('lunchEnd')?.toString();
 		const dayStart = data.get('dayStart')?.toString();
 		const dayEnd = data.get('dayEnd')?.toString();
+		const dateString = data.get('date')?.toString();
 
 		const date = new Date();
+		const dateStringSplit = dateString?.split('/') ?? null;
+		if (dateStringSplit) {
+			date.setFullYear(
+				parseInt(dateStringSplit[2]),
+				parseInt(dateStringSplit[0]) - 1,
+				parseInt(dateStringSplit[1])
+			);
+		}
 		if (lunchStart && lunchStart != '' && lunchEnd && lunchEnd != '') {
 			const lunchStartSplit = lunchStart.split(':');
 			const lunchEndSplit = lunchEnd.split(':');

@@ -6,6 +6,7 @@
 
 	var people = $derived(data.people);
 	var times = $derived(data.times);
+	var date = $derived(data.date);
 	var { lunchStart, lunchEnd, dayStart, dayEnd } = $derived(times);
 </script>
 
@@ -125,6 +126,13 @@
 		<h1 class="text-xl">Competition Settings</h1>
 		<p class="text-md pb-1 text-(--grey)">Set event day timing windows and lunch breaks</p>
 		<form method="post" action="?/saveCompSettings" class="flex items-center justify-around gap-2">
+			<input
+				type="text"
+				name="date"
+				placeholder="Event Date"
+				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				bind:value={date}
+			/>
 			<input
 				type="text"
 				name="dayStart"
