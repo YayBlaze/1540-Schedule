@@ -1,5 +1,6 @@
 import { nexusKey } from '$env/static/private';
 import { eventKey, team } from '$lib/config';
+import { getMilestones } from './db';
 import type { nexusData, nexusMatch } from './types';
 
 var data: nexusData;
@@ -21,7 +22,11 @@ export async function fetchData() {
 	data = await response.json();
 }
 
-export function getLunchTimes() {
+export async function getLunchTimes() {
+	const dbMilestones = await getMilestones();
+	const dbLunch = dbMilestones.find((v) => v.name == 'lunch');
+	if (dbLunch)
+		return { startTimestamp: dbLunch.startTimestamp, endTimestamp: dbLunch.endTimestamp };
 	let matchBefore = null;
 	let matchAfter = null;
 	for (let match of data.matches) {

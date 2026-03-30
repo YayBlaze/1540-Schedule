@@ -25,7 +25,7 @@ export const load: PageServerLoad = async () => {
 	slots = slots.filter((v) => {
 		return v.startTimestamp > startOfDay && v.startTimestamp < endOfDay;
 	});
-	const lunch = getLunchTimes();
+	const lunch = await getLunchTimes();
 	let times;
 	if (lunch && slots.length > 0) {
 		times = {
@@ -86,7 +86,10 @@ export const actions = {
 		const data = await request.formData();
 		const lunchStart = data.get('lunchStart')?.toString();
 		const lunchEnd = data.get('lunchEnd')?.toString();
-		if (!lunchStart || !lunchEnd) return fail(400);
+		const dayStart = data.get('dayStart')?.toString();
+		const dayEnd = data.get('dayEnd')?.toString();
+		if (!lunchStart || !lunchEnd || !dayStart || !dayEnd) return fail(400);
+
 		const date = new Date();
 		const lunchStartSplit = lunchStart.split(':');
 		const lunchEndSplit = lunchEnd.split(':');
@@ -95,5 +98,13 @@ export const actions = {
 		date.setHours(parseInt(lunchEndSplit[0]), parseInt(lunchEndSplit[1]), 0, 0);
 		const lunchEndMS = date.getTime();
 		await setMilestone({ name: 'lunch', start: lunchStartMS, end: lunchEndMS });
+
+		const dayStartSplit = dayStart.split(':');
+		const dayEndSplit = dayEnd.split(':');
+		date.setHours(parseInt(dayStartSplit[0]), parseInt(dayStartSplit[1]), 0, 0);
+		const dayStartMS = date.getTime();
+		date.setHours(parseInt(dayEndSplit[0]), parseInt(dayEndSplit[1]), 0, 0);
+		const dayEndMS = date.getTime();
+		await setMilestone({ name: 'event', start: dayStartMS, end: dayEndMS });
 	}
 } satisfies Actions;

@@ -1,6 +1,7 @@
 import {
 	clearSchedule,
 	clearSlots,
+	getMilestones,
 	getPeopleAtEvent,
 	getSlots,
 	setPersonSchedule,
@@ -12,7 +13,7 @@ import { makeSchedule } from '$lib/aldous/scheduling.js';
 
 export async function generateSchedule() {
 	await clearSchedule();
-	// await generateSlotsNexus();
+	await generateSlotsDummy();
 	const people = await getPeopleAtEvent();
 	const slots = await getSlots();
 	const ppl = (people || []).filter((p) => p && p.attendingEvent);
@@ -115,19 +116,26 @@ export async function generateSchedule() {
 export async function generateSlotsNexus() {
 	await clearSlots();
 	const matches = await ourMatches();
+	const milestoneTimes = await getMilestones();
+	const dbEventTimes = milestoneTimes.find((v) => v.name == 'event');
 	const date = new Date();
-	date.setHours(0, 0, 0, 0);
-	const startOfDay = date.getTime();
-	date.setHours(23, 59, 59, 999);
-	const endOfDay = date.getTime();
-	let lunchTimes = getLunchTimes();
-	date.setHours(8, 0, 0, 0);
-	const eventStart = date.getTime();
+	let dayStart;
+	let dayEnd;
+	let lunchTimes = await getLunchTimes();
+	if (dbEventTimes) {
+		dayStart = dbEventTimes.startTimestamp;
+		dayEnd = dbEventTimes.endTimestamp;
+	} else {
+		date.setHours(0, 0, 0, 0);
+		dayStart = date.getTime();
+		date.setHours(23, 59, 59, 99);
+		dayEnd = date.getTime();
+	}
 	let id = 1;
 	if (matches[0].label.includes('Qualification')) {
 		let slotData = {
 			id,
-			startTimestamp: eventStart,
+			startTimestamp: dayStart,
 			endTimestamp: matches[0].times.scheduledStartTime,
 			startLabel: 'PM1',
 			endLabel: formatMatchLabel(matches[0].label)
@@ -138,7 +146,7 @@ export async function generateSlotsNexus() {
 	for (let i = 0; i < matches.length; i++) {
 		let match = matches[i];
 		let nextMath = matches[i + 1];
-		if (!nextMath || nextMath.times.estimatedStartTime > endOfDay) {
+		if (!nextMath || nextMath.times.estimatedStartTime > dayEnd) {
 			let slotData = {
 				id,
 				startTimestamp: match.times.estimatedStartTime,
@@ -149,7 +157,7 @@ export async function generateSlotsNexus() {
 			await setSlot(slotData);
 			break;
 		}
-		if (match.times.estimatedStartTime < startOfDay || match.times.estimatedQueueTime > endOfDay)
+		if (match.times.estimatedStartTime < dayStart || match.times.estimatedQueueTime > dayEnd)
 			continue;
 		let slotData = {
 			id,
@@ -188,8 +196,23 @@ export async function generateSlotsNexus() {
 export async function generateSlotsDummy() {
 	await clearSlots();
 	let matchNum = 0;
-	let startTimestamp = Date.now();
+	const milestoneTimes = await getMilestones();
+	const dbEventTimes = milestoneTimes.find((v) => v.name == 'event');
+	const date = new Date();
+	let dayStart;
+	let dayEnd;
+	if (dbEventTimes) {
+		dayStart = dbEventTimes.startTimestamp;
+		dayEnd = dbEventTimes.endTimestamp;
+	} else {
+		date.setHours(0, 0, 0, 0);
+		dayStart = date.getTime();
+		date.setHours(23, 59, 59, 99);
+		dayEnd = date.getTime();
+	}
+	let startTimestamp = dayStart;
 	for (let id = 1; id <= 11; id++) {
+		if (startTimestamp > dayEnd) break;
 		await setSlot({
 			id,
 			startTimestamp,

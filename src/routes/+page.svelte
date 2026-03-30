@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { options } from './../../.svelte-kit/generated/server/internal.js';
 	import { goto } from '$app/navigation';
 	import { Role } from '$lib/types';
 	import { onDestroy, onMount } from 'svelte';
@@ -52,6 +53,10 @@
 		return string;
 	}
 
+	const msToTime = (ms: number) => {
+		return new Date(ms).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' });
+	};
+
 	function calcRoleTime(role: Role, name: string) {
 		const personSchedule = schedule.find((v) => v.name == name);
 		if (!personSchedule) return 0;
@@ -76,6 +81,7 @@
 
 	let interval: NodeJS.Timeout;
 	onMount(() => {
+		if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
 		interval = setInterval(() => {
 			if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
 		}, 30 * 1000);
@@ -138,7 +144,9 @@
 								: 400}; color: var({slot.startTimestamp < Date.now() &&
 							slot.endTimestamp > Date.now()
 								? '--yellow'
-								: '--white'})">{slot.startLabel}-{slot.endLabel}</th
+								: '--white'})"
+							><p>{slot.startLabel}-{slot.endLabel}</p>
+							<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p></th
 						>
 					{/each}
 				</tr>
@@ -171,7 +179,17 @@
 	<div class="nunito flex size-fit flex-col items-center justify-around gap-5">
 		{#each slots as slot}
 			<div class="flex w-[90%] justify-between gap-5 rounded-md bg-(--black2) p-5">
-				<p class="w-fit p-1 font-black text-nowrap">{slot.startLabel}-{slot.endLabel}</p>
+				<div
+					class="w-fit p-1 font-black text-nowrap"
+					style="font-weight: {slot.startTimestamp < Date.now() && slot.endTimestamp > Date.now()
+						? 900
+						: 400}; color: var({slot.startTimestamp < Date.now() && slot.endTimestamp > Date.now()
+						? '--yellow'
+						: '--white'})"
+				>
+					<p>{slot.startLabel}-{slot.endLabel}</p>
+					<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p>
+				</div>
 				<div class="flex flex-wrap items-center gap-3">
 					{#each Object.keys(roles[slot.slotNumber - 1]) as role}
 						{#if roles[slot.slotNumber - 1][role as Role].length > 0}

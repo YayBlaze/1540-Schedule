@@ -231,7 +231,9 @@ export async function clearSlots() {
 	return db.prepare('DELETE FROM slots').run();
 }
 
-export async function getMilestones(): Promise<{ name: string; start: number; end: number }[]> {
+export async function getMilestones(): Promise<
+	{ name: string; startTimestamp: number; endTimestamp: number }[]
+> {
 	return db.prepare('SELECT * FROM milestoneTimes').all();
 }
 
