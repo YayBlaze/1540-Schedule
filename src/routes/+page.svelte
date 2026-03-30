@@ -154,7 +154,11 @@
 									style="background-color: var({getColor(slot)}); color: var({slot ===
 										Role.Strategy || slot === Role.Open
 										? '--white'
-										: '--black'});">{slot}</td
+										: '--black'});"
+									onclick={() => {
+										console.log('click');
+										if (slot === Role.Scouting) window.open('https://scout.team1540.org', '_blank');
+									}}>{slot}</td
 								>
 							{/if}
 						{/each}
