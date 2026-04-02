@@ -11,6 +11,7 @@ export type PersonData = {
 	lastName: string;
 	displayName: string;
 	attendingEvent: boolean;
+	attendingLoadIn: boolean;
 	slotsAttending: number[]; // the numbers of the slots they are attending; to be used if someone is arriving late or leaving early
 	rolePool: RolePool;
 	preferences: Preferences;

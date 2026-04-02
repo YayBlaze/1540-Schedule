@@ -626,12 +626,8 @@ async function bldSch(CF) {
 
 	let subs = [];
 	if (Array.isArray(CF.subs) && CF.subs.length > 0) {
-		// console.log('using cf subs');
-		// console.log('cf subs', CF.subs);
 		subs = CF.subs.slice();
-		// console.log('new subs', subs);
 	} else {
-		// console.log('making own subs');
 		try {
 			const csv = await fs.readFile(csvPath, 'utf8');
 			subs = parseSubs(parseCSV(csv), columnMap, {

@@ -1,8 +1,8 @@
-import { getPeople, getNamesInRole, getSchedule, getSlots, msToSlot } from '$lib/db';
+import { getPeople, getNamesInRole, getSchedule, getSlots, msToSlot, getPerson } from '$lib/db';
 import { Role } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, cookies }) => {
 	const scheduleRAW = await getSchedule();
 	const slots = await getSlots();
 	const people = await getPeople();
@@ -40,13 +40,11 @@ export const load: PageServerLoad = async ({ url }) => {
 	let currentSlot = await msToSlot(Date.now());
 	if (!currentSlot) {
 		currentSlot = {
-			num: -1,
+			num: 0,
 			label: 'None'
 		};
-		let nextSlot = null;
-		return { view, schedule, slots, roles, currentSlot, nextSlot };
 	}
-	let nextSlot = await slots[currentSlot.num];
+	let nextSlot = slots[currentSlot.num];
 	if (!nextSlot) {
 		let currentSlotDetailed = slots[currentSlot.num - 1];
 		nextSlot = {
@@ -58,5 +56,17 @@ export const load: PageServerLoad = async ({ url }) => {
 		};
 	}
 
-	return { view, schedule, slots, roles, currentSlot, nextSlot };
+	let personUUID = cookies.get('uuid');
+	let currentRole: Role | null = null;
+	let nextRole: Role | null = null;
+	if (personUUID) {
+		let personName = (await getPerson(personUUID))?.displayName;
+		if (!personName) throw new Error('invalid personUUID');
+		let personSchedule = schedule.find((v) => v.name == personName);
+		currentRole = personSchedule?.slots[currentSlot.num - 1] ?? null;
+		nextRole = personSchedule?.slots[currentSlot.num] ?? null;
+	}
+	let personRoles = { currentRole, nextRole };
+
+	return { view, schedule, slots, roles, currentSlot, nextSlot, personRoles };
 };

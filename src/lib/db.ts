@@ -15,6 +15,7 @@ export async function initDB() {
 			lastName TEXT,
 			displayName TEXT,
 			attendingEvent BOOLEAN,
+			attendingLoadIn BOOLEAN,
 			rolePool TEXT,
 			preferences JSON
 		)
@@ -88,18 +89,21 @@ export async function getPeopleAtEvent(): Promise<PersonData[]> {
 }
 
 export async function addPerson(data: { firstName: string; lastName: string }) {
+	const personUUID = Bun.randomUUIDv7();
 	await db
 		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?, ?, ?, ?)')
 		.run(
-			Bun.randomUUIDv7(),
+			personUUID,
 			data.firstName,
 			data.lastName,
 			data.firstName,
 			true,
+			false,
 			RolePool.None,
 			JSON.stringify({})
 		);
 	await formatName(data.firstName, data.lastName);
+	return personUUID;
 }
 
 export async function removePerson(personUUID: string) {

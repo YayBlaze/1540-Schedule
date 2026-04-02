@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { options } from './../../.svelte-kit/generated/server/internal.js';
 	import { goto } from '$app/navigation';
 	import { Role } from '$lib/types';
 	import { onDestroy, onMount } from 'svelte';
@@ -14,6 +13,7 @@
 	let nextSlot = $derived(data.nextSlot);
 	let timeToNextSlot = $derived(msToRelative(nextSlot?.startTimestamp ?? Date.now() - Date.now()));
 	let view = $derived(data.view);
+	let personRoles = $derived(data.personRoles);
 
 	function getColor(role: Role) {
 		switch (role) {
@@ -72,12 +72,8 @@
 		return msToRelative(totalMS);
 	}
 
-	function timeView() {
-		goto('/?view=time');
-	}
-	function personView() {
-		goto('/?view=person');
-	}
+	const timeView = () => goto('/?view=time');
+	const personView = () => goto('/?view=person');
 
 	let interval: NodeJS.Timeout;
 	onMount(() => {
@@ -112,20 +108,44 @@
 		{/if}
 	</div>
 
-	<button
-		onclick={() => goto('/admin')}
-		class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
-		>Admin</button
-	>
+	<div>
+		<button
+			onclick={() => goto('/form')}
+			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
+			>Preference Form</button
+		>
+		<button
+			onclick={() => goto('/admin')}
+			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
+			>Admin</button
+		>
+	</div>
 </nav>
 
 <div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
-	<p>Current Slot: {currentSlot.label}</p>
+	<div class="flex flex-col items-center justify-center gap-2">
+		<p>Current Slot: {currentSlot.label}</p>
+		{#if personRoles?.currentRole}
+			<p style="color: var({getColor(personRoles.currentRole)});">
+				Current Role: {personRoles.currentRole}
+			</p>
+		{/if}
+	</div>
 	{#if nextSlot}
-		<p>|</p>
-		<p>
-			Next Slot: {nextSlot.startLabel}-{nextSlot.endLabel} in {timeToNextSlot}
-		</p>
+		<div class="flex flex-col items-center justify-center gap-2 border-l-2 border-(--white) pl-2">
+			<p>
+				Next Slot: {nextSlot.startLabel}-{nextSlot.endLabel} in {timeToNextSlot}
+			</p>
+			{#if personRoles?.nextRole}
+				<p
+					style="color: var({personRoles.nextRole != Role.Open
+						? getColor(personRoles.nextRole)
+						: 'white'}"
+				>
+					Next Role: {personRoles.nextRole}
+				</p>
+			{/if}
+		</div>
 	{/if}
 </div>
 
@@ -164,7 +184,6 @@
 										? '--white'
 										: '--black'});"
 									onclick={() => {
-										console.log('click');
 										if (slot === Role.Scouting) window.open('https://scout.team1540.org', '_blank');
 									}}>{slot}</td
 								>
