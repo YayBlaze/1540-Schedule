@@ -10,6 +10,7 @@ export type PersonData = {
 	firstName: string;
 	lastName: string;
 	displayName: string;
+	email: string;
 	attendingEvent: boolean;
 	attendingLoadIn: boolean;
 	slotsAttending: number[]; // the numbers of the slots they are attending; to be used if someone is arriving late or leaving early

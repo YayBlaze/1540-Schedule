@@ -5,18 +5,18 @@ import {
 	importPreferences,
 	removeMilestone,
 	removePerson,
+	addPerson,
 	setMilestone,
 	setSlot,
 	setSlots,
-	updateRolePool
+	updateRolePool,
+	importPeople
 } from '$lib/db';
 import { fail, type Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { RolePool } from '$lib/types';
-import { addPerson } from '$lib/db';
 import { generateSchedule } from '$lib/schedule';
-import { getLunchTimes } from '$lib/nexus';
-import { getEventTimes } from '$lib/nexus';
+import { getLunchTimes, getEventTimes } from '$lib/nexus';
 
 export const load: PageServerLoad = async () => {
 	const people = await getPeople();
@@ -63,8 +63,9 @@ export const actions = {
 		const data = await request.formData();
 		const firstName = data.get('firstName')?.toString();
 		const lastName = data.get('lastName')?.toString();
-		if (!firstName || !lastName) return fail(400);
-		await addPerson({ firstName, lastName });
+		const email = data.get('email')?.toString();
+		if (!firstName || !lastName || !email) return fail(400);
+		await addPerson({ firstName, lastName, email });
 	},
 	deletePerson: async ({ request }) => {
 		const data = await request.formData();
@@ -149,5 +150,6 @@ export const actions = {
 			});
 		}
 	},
-	importPrefs: async ({}) => await importPreferences()
+	importPrefs: async ({}) => await importPreferences(),
+	importPeople: async ({}) => await importPeople()
 } satisfies Actions;

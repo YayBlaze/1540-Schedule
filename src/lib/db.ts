@@ -16,6 +16,7 @@ export async function initDB() {
 			firstName TEXT,
 			lastName TEXT,
 			displayName TEXT,
+			email TEXT,
 			attendingEvent BOOLEAN,
 			attendingLoadIn BOOLEAN,
 			rolePool TEXT,
@@ -90,16 +91,17 @@ export async function getPeopleAtEvent(): Promise<PersonData[]> {
 	});
 }
 
-export async function addPerson(data: { firstName: string; lastName: string }) {
+export async function addPerson(data: { firstName: string; lastName: string; email: string }) {
 	const personUUID = Bun.randomUUIDv7();
 	await db
-		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?, ?, ?, ?)')
+		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
 		.run(
 			personUUID,
 			data.firstName,
 			data.lastName,
 			data.firstName,
-			true,
+			data.email,
+			false,
 			false,
 			RolePool.None,
 			JSON.stringify({})
@@ -116,6 +118,25 @@ export async function removePerson(personUUID: string) {
 	await formatName(data.firstName, data.lastName);
 }
 
+export async function importPeople() {
+	await db.prepare('DELETE FROM people').run();
+	const csvContent = fs.readFileSync('static/people.csv', 'utf-8');
+	const records: Record<string, string>[] = parse(csvContent, {
+		columns: true,
+		skip_empty_lines: true
+	});
+
+	for (let entry of records) {
+		let fullName = entry.full_name;
+		let data = {
+			firstName: fullName.split(' ')[0],
+			lastName: fullName.split(' ')[1],
+			email: entry.email
+		};
+		await addPerson(data);
+	}
+}
+
 export async function getPerson(personUUID: string): Promise<PersonData | null> {
 	const res = db.prepare('SELECT * FROM people WHERE uuid = ?').get(personUUID) as PersonData;
 	if (!res) return null;
@@ -127,6 +148,7 @@ export async function getPerson(personUUID: string): Promise<PersonData | null> 
 }
 
 export async function updatePreferences(personUUID: string, preferences: Preferences) {
+	await setPersonStats(personUUID, true);
 	return db
 		.prepare('UPDATE people SET preferences = ? WHERE uuid = ?')
 		.run(JSON.stringify(preferences), personUUID);
@@ -147,22 +169,42 @@ export async function randomizePreferences() {
 
 export async function importPreferences() {
 	const csvContent = fs.readFileSync('static/prefs.csv', 'utf-8');
-	const records: any[] = parse(csvContent, {
+	const records: Record<string, string>[] = parse(csvContent, {
 		columns: true,
 		skip_empty_lines: true
 	});
+	const people = await getPeople();
+	for (let entry of records) {
+		let personData = people.find((v) => v.email === entry['Email Address']);
+		if (!personData) continue;
+		let preferences: Preferences = {
+			doPits: entry['Are you interested in being on pit crew?'] == 'Yes' ? 1 : 0,
+			doMedia: entry['What other roles are you interested in?'].includes('Media') ? true : false,
+			doJournalism: entry['What other roles are you interested in?'].includes('Journalism')
+				? true
+				: false,
+			doStrategy: entry['What other roles are you interested in?'].includes('Strategy')
+				? true
+				: false
+		};
+		await updatePreferences(personData.uuid, preferences);
+	}
 }
 
 export async function updateRolePool(personUUID: string, rolePool: RolePool) {
 	return db.prepare('UPDATE people SET rolePool = ? WHERE uuid = ?').run(rolePool, personUUID);
 }
 
+export async function setPersonStats(personUUID: string, attendingEvent: boolean) {
+	return db
+		.prepare('UPDATE people SET attendingEvent = ? WHERE uuid = ?')
+		.run(attendingEvent, personUUID);
+}
+
 export async function changePersonStatus(personUUID: string) {
 	const res = db.prepare('SELECT attendingEvent FROM people WHERE uuid = ?').get(personUUID);
 	let attendingEvent: boolean = res.attendingEvent;
-	return db
-		.prepare('UPDATE people SET attendingEvent = ? WHERE uuid = ?')
-		.run(!attendingEvent, personUUID);
+	setPersonStats(personUUID, !attendingEvent);
 }
 
 export async function setPersonSchedule(personUUID: string, schedule: (Role | null)[]) {

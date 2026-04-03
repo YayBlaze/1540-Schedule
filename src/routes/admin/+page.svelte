@@ -21,6 +21,14 @@
 	}
 	var { lunchStart, lunchEnd, dayStart, dayEnd } = $derived(times);
 
+	var newFirstName = $state('');
+	var newLastName = $state('');
+	var newEmail = $derived(
+		newFirstName && newLastName
+			? `${newLastName.toLowerCase()}${newFirstName.charAt(0).toLowerCase()}@catlin.edu`
+			: ''
+	);
+
 	function toDatetimeLocal(ms: number) {
 		if (!ms) return '';
 		const d = new Date(ms);
@@ -59,7 +67,18 @@
 				</p>
 			</div>
 			<form action="?/importPrefs" method="post">
-				<button class="button-primary" id="submit">Import</button>
+				<button class="button-primary" id="submit">Import Preferences</button>
+			</form>
+		</div>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Import People</h1>
+				<p class="pb-1 text-sm text-(--grey)">
+					Imports people from a csv file located in static/people.csv
+				</p>
+			</div>
+			<form action="?/importPeople" method="post">
+				<button class="button-primary" id="submit">Import People</button>
 			</form>
 		</div>
 	</div>
@@ -77,12 +96,21 @@
 					name="firstName"
 					placeholder="First Name"
 					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
+					bind:value={newFirstName}
 				/>
 				<input
 					type="text"
 					name="lastName"
 					placeholder="Last Name"
 					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
+					bind:value={newLastName}
+				/>
+				<input
+					type="text"
+					name="email"
+					placeholder="Email"
+					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
+					bind:value={newEmail}
 				/>
 				<button id="submit" class="button-primary">Add</button>
 			</form>
