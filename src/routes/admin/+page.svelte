@@ -7,7 +7,26 @@
 	var people = $derived(data.people);
 	var times = $derived(data.times);
 	var date = $derived(data.date);
+	var slots = $derived(data.slots);
+	// svelte-ignore state_referenced_locally
+	var slotsToEdit = $state(slots);
+	while (slotsToEdit.length < 11) {
+		slotsToEdit.push({
+			slotNumber: slotsToEdit.length + 1,
+			startLabel: '',
+			startTimestamp: 0,
+			endLabel: '',
+			endTimestamp: 0
+		});
+	}
 	var { lunchStart, lunchEnd, dayStart, dayEnd } = $derived(times);
+
+	function toDatetimeLocal(ms: number) {
+		if (!ms) return '';
+		const d = new Date(ms);
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	}
 </script>
 
 <nav class="flex h-fit w-full items-center justify-between bg-(--white) p-2 pr-5 pl-5">
@@ -21,7 +40,12 @@
 
 <div class="flex w-full flex-col justify-around gap-5 p-3">
 	<div class="item flex items-center justify-between">
-		<h1 class="text-xl">Generate Schedule</h1>
+		<div>
+			<h1 class="text-xl">Generate Schedule</h1>
+			<p class="pb-1 text-sm text-(--red)">
+				Warning: This action will re-generate the schedule and slots for all people
+			</p>
+		</div>
 		<form action="?/generate" method="post">
 			<button class="button-primary" id="submit">Generate</button>
 		</form>
@@ -170,6 +194,54 @@
 			>
 		</form>
 	</div>
+
+	<div class="item">
+		<h1 class="text-xl">Edit time slots</h1>
+		<p class="text-md pb-1 text-(--grey)">Set label and timestamps of the time slots</p>
+		<p class="pb-1 text-sm text-(--grey)">
+			To remove a slot, set the start label to nothing *not recommended
+		</p>
+		<div class="flex w-full flex-wrap items-center gap-4">
+			{#each slotsToEdit as slot}
+				<form
+					class="flex h-69 w-[30%] flex-col items-center justify-around gap-2 rounded-2xl border border-(--white) p-2"
+					method="post"
+					action="?/editSlot"
+				>
+					<h1>Slot {slot.slotNumber}</h1>
+					<input type="hidden" name="slotNum" value={slot.slotNumber} />
+					<input
+						type="text"
+						name="startLabel"
+						placeholder="Start Label"
+						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						value={slot.startLabel}
+					/>
+					<input
+						type="datetime-local"
+						name="startTimestamp"
+						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						value={toDatetimeLocal(slot.startTimestamp)}
+					/>
+					<input
+						type="text"
+						name="endLabel"
+						placeholder="End Label"
+						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						value={slot.endLabel}
+					/>
+					<input
+						type="datetime-local"
+						name="endTimestamp"
+						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						placeholder="End Timestamp"
+						value={toDatetimeLocal(slot.endTimestamp)}
+					/>
+					<button class="button-primary" id="submit">Save</button>
+				</form>
+			{/each}
+		</div>
+	</div>
 </div>
 
 <style>
@@ -179,7 +251,7 @@
 		width: 95%;
 		margin: auto;
 		border: 1px solid var(--white);
-		border-radius: 5px;
+		border-radius: 20px;
 	}
 
 	.button-primary {

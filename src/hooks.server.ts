@@ -1,10 +1,12 @@
-import { initDB, isValidSession } from '$lib/db';
+import { clearSessions, initDB, isValidSession } from '$lib/db';
 import { fetchData } from '$lib/nexus';
 import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 
 export const init: ServerInit = async () => {
 	await initDB();
 	await fetchData();
+	setInterval(fetchData, 5 * 60 * 1000);
+	setInterval(clearSessions, 5 * 60 * 60 * 1000);
 };
 
 export const handle: Handle = async ({ event, resolve }) => {

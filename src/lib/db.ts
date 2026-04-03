@@ -206,19 +206,34 @@ export async function getNamesInRole(role: Role, slotNum: number): Promise<strin
 }
 
 export async function setSlot(data: {
-	id: number;
+	slotNumber: number;
 	startTimestamp: number;
 	endTimestamp: number;
 	startLabel: string;
 	endLabel: string;
 }) {
 	db.prepare('INSERT OR REPLACE INTO slots VALUES (?, ?, ?, ?, ?)').run(
-		data.id,
+		data.slotNumber,
 		data.startTimestamp,
 		data.endTimestamp,
 		data.startLabel,
 		data.endLabel
 	);
+}
+
+export async function setSlots(
+	data: {
+		slotNumber: number;
+		startTimestamp: number;
+		endTimestamp: number;
+		startLabel: string;
+		endLabel: string;
+	}[]
+) {
+	await clearSlots();
+	data.forEach((v) => {
+		setSlot(v);
+	});
 }
 
 export async function getSlots() {
@@ -261,6 +276,7 @@ export async function isValidSession(sessionID: string): Promise<boolean> {
 	if (expires) {
 		if (expires > Date.now()) return true;
 		else {
+			console.log('removing session');
 			await db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionID);
 			return false;
 		}
@@ -272,6 +288,10 @@ export async function newSession(): Promise<string> {
 	const sessionExpire = Date.now() + 60 * 60 * 1000; // expires 1hr after creation
 	await db.prepare('INSERT INTO sessions VALUES (?, ?)').run(sessionID, sessionExpire);
 	return sessionID;
+}
+
+export async function clearSessions() {
+	return db.prepare('DELETE FROM sessions').run();
 }
 
 async function formatName(firstName: string, lastName: string) {

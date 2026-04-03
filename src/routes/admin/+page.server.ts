@@ -5,6 +5,8 @@ import {
 	removeMilestone,
 	removePerson,
 	setMilestone,
+	setSlot,
+	setSlots,
 	updateRolePool
 } from '$lib/db';
 import { fail, type Actions } from '@sveltejs/kit';
@@ -24,9 +26,6 @@ export const load: PageServerLoad = async () => {
 	date.setHours(23, 59, 59, 999);
 	const endOfDay = date.getTime();
 
-	slots = slots.filter((v) => {
-		return v.startTimestamp > startOfDay && v.startTimestamp < endOfDay;
-	});
 	const lunch = await getLunchTimes();
 	const { dayStart, dayEnd } = await getEventTimes();
 	let times;
@@ -40,7 +39,7 @@ export const load: PageServerLoad = async () => {
 	} else {
 		times = {};
 	}
-	return { people, times, date: new Date(dayStart).toLocaleDateString('en-US') };
+	return { people, times, date: new Date(dayStart).toLocaleDateString('en-US'), slots };
 };
 
 export const actions = {
@@ -122,6 +121,31 @@ export const actions = {
 			await setMilestone({ name: 'event', start: dayStartMS, end: dayEndMS });
 		} else {
 			await removeMilestone('event');
+		}
+	},
+	editSlot: async ({ request }) => {
+		const data = await request.formData();
+		const slotString = data.get('slotNum')?.toString();
+		const startLabel = data.get('startLabel')?.toString();
+		const startTimeString = data.get('startTimestamp')?.toString();
+		const endLabel = data.get('endLabel')?.toString();
+		const endTimeString = data.get('endTimestamp')?.toString();
+		if (!slotString || !startTimeString || !endTimeString) return fail(400);
+		let slotNumber = parseInt(slotString);
+		if (!startLabel || !endLabel) {
+			let slots = await getSlots();
+			slots.splice(slotNumber, 1);
+			await setSlots(slots);
+		} else {
+			let startTimestamp = new Date(startTimeString).getTime();
+			let endTimestamp = new Date(endTimeString).getTime();
+			await setSlot({
+				slotNumber,
+				startLabel,
+				startTimestamp,
+				endLabel,
+				endTimestamp
+			});
 		}
 	}
 } satisfies Actions;

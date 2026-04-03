@@ -140,7 +140,7 @@ export async function generateSlotsNexus() {
 	);
 	let id = 1;
 	let slotData = {
-		id,
+		slotNumber: id,
 		startTimestamp: dayStart,
 		endTimestamp: matchesToday[0].times.estimatedStartTime,
 		startLabel: 'Start of Day',
@@ -153,9 +153,9 @@ export async function generateSlotsNexus() {
 		let nextMath = matchesToday[i + 1];
 		if (!nextMath || nextMath.times.estimatedStartTime > dayEnd) {
 			let slotData = {
-				id,
+				slotNumber: id,
 				startTimestamp: match.times.estimatedStartTime,
-				endTimestamp: lastMatch().times.estimatedStartTime + 5 * 60 * 1000,
+				endTimestamp: dayEnd,
 				startLabel: formatMatchLabel(match.label),
 				endLabel: 'End of Day'
 			};
@@ -165,7 +165,7 @@ export async function generateSlotsNexus() {
 		if (match.times.estimatedStartTime < dayStart || match.times.estimatedQueueTime > dayEnd)
 			continue;
 		let slotData = {
-			id,
+			slotNumber: id,
 			startTimestamp: match.times.estimatedStartTime ?? match.times.scheduledStartTime,
 			endTimestamp: nextMath.times.estimatedStartTime,
 			startLabel: formatMatchLabel(match.label),
@@ -176,7 +176,7 @@ export async function generateSlotsNexus() {
 			slotData.endTimestamp >= lunchTimes.endTimestamp
 		) {
 			slotData = {
-				id,
+				slotNumber: id,
 				startTimestamp: match.times.estimatedStartTime,
 				endTimestamp: lunchTimes.startTimestamp,
 				startLabel: formatMatchLabel(match.label),
@@ -187,7 +187,7 @@ export async function generateSlotsNexus() {
 			i++;
 			nextMath = matchesToday[i + 1];
 			slotData = {
-				id,
+				slotNumber: id,
 				startTimestamp: lunchTimes.endTimestamp,
 				endTimestamp: nextMath.times.estimatedStartTime,
 				startLabel: 'Lunch',
@@ -206,7 +206,7 @@ export async function generateSlotsDummy() {
 	for (let id = 1; id <= 11; id++) {
 		if (startTimestamp > dayEnd) break;
 		await setSlot({
-			id,
+			slotNumber: id,
 			startTimestamp,
 			endTimestamp: startTimestamp + 10 * 5 * 60 * 1000,
 			startLabel: matchNum > 0 ? `QM${matchNum}` : `QM${matchNum + 1}`,

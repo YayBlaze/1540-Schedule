@@ -126,7 +126,11 @@
 	<div class="flex flex-col items-center justify-center gap-2">
 		<p>Current Slot: {currentSlot.label}</p>
 		{#if personRoles?.currentRole}
-			<p style="color: var({getColor(personRoles.currentRole)});">
+			<p
+				style="color: var({personRoles.currentRole != Role.Open
+					? getColor(personRoles.currentRole)
+					: 'white'}"
+			>
 				Current Role: {personRoles.currentRole}
 			</p>
 		{/if}

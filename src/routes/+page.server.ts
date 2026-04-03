@@ -18,7 +18,10 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 	let schedule = scheduleRAW.map((row) => ({
 		name: peopleLookUp[row.personUUID],
 		slots: Object.keys(row)
-			.filter((key) => key.startsWith('slot'))
+			.filter(
+				(key) =>
+					key.startsWith('slot') && parseInt(key.slice(-1)) <= (slots.at(-1)?.slotNumber ?? 0)
+			)
 			.map((key) => row[key as keyof typeof row] as Role)
 	}));
 
