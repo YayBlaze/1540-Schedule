@@ -113,11 +113,11 @@
 	</div>
 
 	<div>
-		<!-- <button
-			onclick={() => goto('/form')}
+		<button
+			onclick={() => goto('/login')}
 			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
-			>Preference Form</button
-		> -->
+			>Login</button
+		>
 		<button
 			onclick={() => goto('/admin')}
 			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
