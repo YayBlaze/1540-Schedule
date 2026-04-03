@@ -1,4 +1,6 @@
 import { Role, RolePool, type PersonData, type personSchedule, type Preferences } from './types';
+import { parse } from 'csv-parse/sync';
+import fs from 'fs';
 
 let db: any = null;
 
@@ -141,6 +143,14 @@ export async function randomizePreferences() {
 			doJournalism: Math.random() > 0.5
 		});
 	}
+}
+
+export async function importPreferences() {
+	const csvContent = fs.readFileSync('static/prefs.csv', 'utf-8');
+	const records: any[] = parse(csvContent, {
+		columns: true,
+		skip_empty_lines: true
+	});
 }
 
 export async function updateRolePool(personUUID: string, rolePool: RolePool) {

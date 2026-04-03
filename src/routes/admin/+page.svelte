@@ -39,16 +39,29 @@
 </nav>
 
 <div class="flex w-full flex-col justify-around gap-5 p-3">
-	<div class="item flex items-center justify-between">
-		<div>
-			<h1 class="text-xl">Generate Schedule</h1>
-			<p class="pb-1 text-sm text-(--red)">
-				Warning: This action will re-generate the schedule and slots for all people
-			</p>
+	<div class="item flex flex-col gap-2">
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Generate Schedule</h1>
+				<p class="pb-1 text-sm text-(--red)">
+					Warning: This action will re-generate the schedule and slots for all people
+				</p>
+			</div>
+			<form action="?/generate" method="post">
+				<button class="button-primary" id="submit">Generate</button>
+			</form>
 		</div>
-		<form action="?/generate" method="post">
-			<button class="button-primary" id="submit">Generate</button>
-		</form>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Import Preferences</h1>
+				<p class="pb-1 text-sm text-(--grey)">
+					Imports preferences from a csv file located in static/prefs.csv
+				</p>
+			</div>
+			<form action="?/importPrefs" method="post">
+				<button class="button-primary" id="submit">Import</button>
+			</form>
+		</div>
 	</div>
 	<div class="m-auto flex w-[95%] justify-around gap-5">
 		<div class="item h-100">

@@ -60,16 +60,23 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 	}
 
 	let personUUID = cookies.get('uuid');
-	let currentRole: Role | null = null;
-	let nextRole: Role | null = null;
+	let currentPerson: {
+		personName: string | null;
+		currentRole: Role | null;
+		nextRole: Role | null;
+	} = {
+		personName: null,
+		currentRole: null,
+		nextRole: null
+	};
 	if (personUUID) {
 		let personName = (await getPerson(personUUID))?.displayName;
 		if (!personName) throw new Error('invalid personUUID');
 		let personSchedule = schedule.find((v) => v.name == personName);
-		currentRole = personSchedule?.slots[currentSlot.num - 1] ?? null;
-		nextRole = personSchedule?.slots[currentSlot.num] ?? null;
+		let currentRole = personSchedule?.slots[currentSlot.num - 1] ?? null;
+		let nextRole = personSchedule?.slots[currentSlot.num] ?? null;
+		currentPerson = { personName, currentRole, nextRole };
 	}
-	let personRoles = { currentRole, nextRole };
 
-	return { view, schedule, slots, roles, currentSlot, nextSlot, personRoles };
+	return { view, schedule, slots, roles, currentSlot, nextSlot, currentPerson };
 };

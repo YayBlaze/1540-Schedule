@@ -2,6 +2,7 @@ import {
 	changePersonStatus,
 	getPeople,
 	getSlots,
+	importPreferences,
 	removeMilestone,
 	removePerson,
 	setMilestone,
@@ -147,5 +148,6 @@ export const actions = {
 				endTimestamp
 			});
 		}
-	}
+	},
+	importPrefs: async ({}) => await importPreferences()
 } satisfies Actions;

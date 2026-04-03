@@ -13,7 +13,10 @@
 	let nextSlot = $derived(data.nextSlot);
 	let timeToNextSlot = $derived(msToRelative(nextSlot?.startTimestamp ?? Date.now() - Date.now()));
 	let view = $derived(data.view);
-	let personRoles = $derived(data.personRoles);
+	let currentPerson = $derived(data.currentPerson);
+	let personName = $derived(currentPerson.personName);
+	let currentRole = $derived(currentPerson.currentRole);
+	let nextRole = $derived(currentPerson.nextRole);
 
 	function getColor(role: Role) {
 		switch (role) {
@@ -77,6 +80,7 @@
 
 	let interval: NodeJS.Timeout;
 	onMount(() => {
+		console.log(personName);
 		if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
 		interval = setInterval(() => {
 			if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
@@ -109,11 +113,11 @@
 	</div>
 
 	<div>
-		<button
+		<!-- <button
 			onclick={() => goto('/form')}
 			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
 			>Preference Form</button
-		>
+		> -->
 		<button
 			onclick={() => goto('/admin')}
 			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
@@ -125,13 +129,9 @@
 <div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
 	<div class="flex flex-col items-center justify-center gap-2">
 		<p>Current Slot: {currentSlot.label}</p>
-		{#if personRoles?.currentRole}
-			<p
-				style="color: var({personRoles.currentRole != Role.Open
-					? getColor(personRoles.currentRole)
-					: 'white'}"
-			>
-				Current Role: {personRoles.currentRole}
+		{#if currentRole}
+			<p style="color: var({currentRole != Role.Open ? getColor(currentRole) : 'white'}">
+				Current Role: {currentRole}
 			</p>
 		{/if}
 	</div>
@@ -140,13 +140,9 @@
 			<p>
 				Next Slot: {nextSlot.startLabel}-{nextSlot.endLabel} in {timeToNextSlot}
 			</p>
-			{#if personRoles?.nextRole}
-				<p
-					style="color: var({personRoles.nextRole != Role.Open
-						? getColor(personRoles.nextRole)
-						: 'white'}"
-				>
-					Next Role: {personRoles.nextRole}
+			{#if nextRole}
+				<p style="color: var({nextRole != Role.Open ? getColor(nextRole) : 'white'}">
+					Next Role: {nextRole}
 				</p>
 			{/if}
 		</div>
@@ -178,7 +174,13 @@
 			<tbody>
 				{#each schedule as person}
 					<tr>
-						<td class="p-2">{person.name}</td>
+						<td
+							class="p-2"
+							style="color: var({personName == person.name
+								? '--yellow'
+								: '--white'}); font-weight: {personName == person.name ? 900 : 400}"
+							>{person.name}</td
+						>
 						{#each person.slots as slot}
 							{#if slot}
 								<td
