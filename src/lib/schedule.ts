@@ -6,7 +6,7 @@ import {
 	setPersonSchedule,
 	setSlot
 } from '$lib/db';
-import { getLunchTimes, ourMatches, formatMatchLabel, lastMatch, getEventTimes } from '$lib/nexus';
+import { getLunchTimes, ourMatches, formatMatchLabel, getEventTimes, fetchData } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { makeSchedule } from '$lib/aldous/scheduling.js';
 
@@ -129,8 +129,20 @@ export async function generateSchedule() {
 		await setPersonSchedule(person.uuid, sch);
 	}
 }
-
+export async function updateSlotTiming() {
+	await fetchData();
+	const matches = await ourMatches();
+	const slots = await getSlots();
+	for (let slot of slots) {
+		if (!slot.allowUpdate) continue;
+		let startMatch = matches.find((match) => formatMatchLabel(match.label) == slot.startLabel);
+		slot.startTimestamp = startMatch?.times.estimatedStartTime ?? slot.startTimestamp;
+		let endMatch = matches.find((match) => formatMatchLabel(match.label) == slot.endLabel);
+		slot.endTimestamp = endMatch?.times.estimatedStartTime ?? slot.endTimestamp;
+	}
+}
 export async function generateSlotsNexus() {
+	await fetchData();
 	await clearSlots();
 	const matches = await ourMatches();
 	const lunchTimes = await getLunchTimes();
@@ -144,7 +156,8 @@ export async function generateSlotsNexus() {
 		startTimestamp: dayStart,
 		endTimestamp: matchesToday[0].times.estimatedStartTime,
 		startLabel: 'Start of Day',
-		endLabel: formatMatchLabel(matchesToday[0].label, true)
+		endLabel: formatMatchLabel(matchesToday[0].label, true),
+		allowUpdate: true
 	};
 	await setSlot(slotData);
 	id++;
@@ -157,7 +170,8 @@ export async function generateSlotsNexus() {
 				startTimestamp: match.times.estimatedStartTime,
 				endTimestamp: dayEnd,
 				startLabel: formatMatchLabel(match.label),
-				endLabel: 'End of Day'
+				endLabel: 'End of Day',
+				allowUpdate: true
 			};
 			await setSlot(slotData);
 			break;
@@ -169,7 +183,8 @@ export async function generateSlotsNexus() {
 			startTimestamp: match.times.estimatedStartTime ?? match.times.scheduledStartTime,
 			endTimestamp: nextMath.times.estimatedStartTime,
 			startLabel: formatMatchLabel(match.label),
-			endLabel: formatMatchLabel(nextMath.label, true)
+			endLabel: formatMatchLabel(nextMath.label, true),
+			allowUpdate: true
 		};
 		if (
 			slotData.startTimestamp <= lunchTimes.startTimestamp &&
@@ -180,7 +195,8 @@ export async function generateSlotsNexus() {
 				startTimestamp: match.times.estimatedStartTime,
 				endTimestamp: lunchTimes.startTimestamp,
 				startLabel: formatMatchLabel(match.label),
-				endLabel: 'Lunch'
+				endLabel: 'Lunch',
+				allowUpdate: true
 			};
 			await setSlot(slotData);
 			id++;
@@ -191,7 +207,8 @@ export async function generateSlotsNexus() {
 				startTimestamp: lunchTimes.endTimestamp,
 				endTimestamp: nextMath.times.estimatedStartTime,
 				startLabel: 'Lunch',
-				endLabel: formatMatchLabel(nextMath.label)
+				endLabel: formatMatchLabel(nextMath.label),
+				allowUpdate: true
 			};
 		}
 		await setSlot(slotData);
@@ -210,7 +227,8 @@ export async function generateSlotsDummy() {
 			startTimestamp,
 			endTimestamp: startTimestamp + 10 * 5 * 60 * 1000,
 			startLabel: matchNum > 0 ? `QM${matchNum}` : `QM${matchNum + 1}`,
-			endLabel: `QM${matchNum + 10}`
+			endLabel: `QM${matchNum + 10}`,
+			allowUpdate: true
 		});
 		matchNum += 10;
 		startTimestamp += 10 * 5 * 60 * 1000;

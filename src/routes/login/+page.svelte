@@ -26,7 +26,9 @@
 		class="h-fit w-[70%] rounded-md border border-(--grey) p-1 text-(--white)"
 	>
 		{#each people as person}
-			<option value={person.uuid}>{person.displayName}</option>
+			{#if person.attendingEvent}
+				<option value={person.uuid}>{person.displayName}</option>
+			{/if}
 		{/each}
 	</select>
 	<button id="submit" class="button-primary">Submit</button>

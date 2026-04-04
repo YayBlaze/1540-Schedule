@@ -47,7 +47,8 @@ export async function initDB() {
 			startTimestamp LONG,
 			endTimestamp LONG,
 			startLabel TEXT,
-			endLabel TEXT
+			endLabel TEXT,
+			allowUpdate BOOLEAN
 		)
 	`);
 
@@ -263,13 +264,15 @@ export async function setSlot(data: {
 	endTimestamp: number;
 	startLabel: string;
 	endLabel: string;
+	allowUpdate: boolean;
 }) {
-	db.prepare('INSERT OR REPLACE INTO slots VALUES (?, ?, ?, ?, ?)').run(
+	db.prepare('INSERT OR REPLACE INTO slots VALUES (?, ?, ?, ?, ?, ?)').run(
 		data.slotNumber,
 		data.startTimestamp,
 		data.endTimestamp,
 		data.startLabel,
-		data.endLabel
+		data.endLabel,
+		data.allowUpdate
 	);
 }
 
@@ -280,6 +283,7 @@ export async function setSlots(
 		endTimestamp: number;
 		startLabel: string;
 		endLabel: string;
+		allowUpdate: boolean;
 	}[]
 ) {
 	await clearSlots();
@@ -295,6 +299,7 @@ export async function getSlots() {
 		endTimestamp: number;
 		startLabel: string;
 		endLabel: string;
+		allowUpdate: boolean;
 	}[];
 }
 

@@ -16,7 +16,8 @@
 			startLabel: '',
 			startTimestamp: 0,
 			endLabel: '',
-			endTimestamp: 0
+			endTimestamp: 0,
+			allowUpdate: true
 		});
 	}
 	var { lunchStart, lunchEnd, dayStart, dayEnd } = $derived(times);
@@ -56,7 +57,18 @@
 				</p>
 			</div>
 			<form action="?/generate" method="post">
-				<button class="button-primary" id="submit">Generate</button>
+				<button class="button-primary" id="submit">Generate Schedule</button>
+			</form>
+		</div>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Generate Slots</h1>
+				<p class="pb-1 text-sm text-(--grey)">
+					Re-generate the slots without affecting the schedule
+				</p>
+			</div>
+			<form action="?/generate" method="post">
+				<button class="button-primary" id="submit">Generate Slots</button>
 			</form>
 		</div>
 		<div class="flex items-center justify-between">
@@ -245,7 +257,7 @@
 		<div class="flex w-full flex-wrap items-center gap-4">
 			{#each slotsToEdit as slot}
 				<form
-					class="flex h-69 w-[30%] flex-col items-center justify-around gap-2 rounded-2xl border border-(--white) p-2"
+					class="flex h-73 w-[30%] flex-col items-center justify-around gap-2 rounded-2xl border border-(--white) p-2"
 					method="post"
 					action="?/editSlot"
 				>
@@ -278,6 +290,15 @@
 						placeholder="End Timestamp"
 						value={toDatetimeLocal(slot.endTimestamp)}
 					/>
+					<div class="flex justify-center gap-2">
+						<input
+							type="checkbox"
+							name="allowUpdates"
+							id="allowUpdates"
+							checked={slot.allowUpdate}
+						/>
+						<label for="allowUpdates">Allow auto updates from nexus?</label>
+					</div>
 					<button class="button-primary" id="submit">Save</button>
 				</form>
 			{/each}

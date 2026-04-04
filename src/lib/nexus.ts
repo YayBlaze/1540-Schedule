@@ -1,7 +1,7 @@
 import { nexusKey } from '$env/static/private';
 import { eventKey, team } from '$lib/config';
-import { getMilestones } from './db';
-import type { nexusData, nexusMatch } from './types';
+import { getMilestones } from '$lib/db';
+import type { nexusData, nexusMatch } from '$lib/types';
 
 var data: nexusData;
 
@@ -125,9 +125,14 @@ export function firstMatch() {
 export function formatMatchLabel(label: string, negativeOffset: boolean = false) {
 	let number = parseInt(label.split(' ')[1]);
 	if (negativeOffset) number -= 1;
-	return label.includes('Qualification')
-		? `QM${number}`
-		: label.includes('Practice')
-			? `PM${number}`
-			: label;
+
+	const prefixes: [string, string][] = [
+		['Qualification', 'QM'],
+		['Practice', 'PM'],
+		['Playoff', 'SFM'],
+		['Final', 'FM']
+	];
+
+	const match = prefixes.find(([key]) => label.includes(key));
+	return match ? `${match[1]}${number}` : label;
 }
