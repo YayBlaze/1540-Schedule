@@ -1,38 +1,48 @@
-import { clearSlots, getPeople, getSlots, setPersonSchedule, setSlot } from '$lib/db';
 import {
-	getLunchTimes as getLunch,
-	lastMatch as getLastMatch,
+	clearSchedule,
+	clearSlots,
+	getPeopleAtEvent,
+	getSlots,
+	setPersonSchedule,
+	setSlot
+} from '$lib/db';
+import {
+	getLunchTimes,
 	ourMatches,
 	formatMatchLabel,
 	fetchData,
-	getEventTimes
+	getEventTimes,
+	lastMatch as getLastMatch
 } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
-import {
-	makeSchedule,
-	addPersonToDaySchedule,
-	removePersonFromDaySchedule
-} from '$lib/aldous/scheduling.js';
+import { makeSchedule } from '$lib/aldous/scheduling.js';
+
+export { addPersonToDaySchedule, defaultLightSchedule, removePersonFromDaySchedule } from '$lib/aldous/scheduling.js';
 
 const SCOUT_THROUGH_MATCH_SLOTS: number | null = null;
 
 export async function generateSchedule() {
+	await clearSchedule();
 	await generateSlotsNexus();
-	const people = await getPeople();
-	const slots = await getSlots();
+	const eventTimesMS = await getEventTimes();
+	const eventTimesString = {
+		dayStart: new Date(eventTimesMS.dayStart).toLocaleTimeString('en-US', { hour12: false }),
+		dayEnd: new Date(eventTimesMS.dayEnd).toLocaleTimeString('en-US', { hour12: false })
+	};
+	const lunchTimesMS = await getLunchTimes();
+	const lunchTimesString = {
+		lunchStart: new Date(lunchTimesMS.startTimestamp).toLocaleTimeString('en-US', {
+			hour12: false
+		}),
+		lunchEnd: new Date(lunchTimesMS.endTimestamp).toLocaleTimeString('en-US', { hour12: false })
+	};
+	const people = await getPeopleAtEvent();
+	const slots = [...((await getSlots()) || [])].sort((a, b) => a.slotNumber - b.slotNumber);
 	const ppl = (people || []).filter((p) => p && p.attendingEvent);
-	const nSlots = Math.min(11, (slots || []).length);
-
-	const orderedSlots = [...(slots || [])].sort((a, b) => a.slotNumber - b.slotNumber);
-	const blockLabels = orderedSlots.slice(0, nSlots).map((s) => `${s.startLabel}-${s.endLabel}`);
-	const slotMinutes = orderedSlots
-		.slice(0, nSlots)
-		.map((s) => Math.max(1, Math.round((s.endTimestamp - s.startTimestamp) / 60000)));
+	const nSlots = Math.min(11, slots.length);
 
 	const drv = ppl.filter((p) => p.rolePool === RolePool.Drive).length;
 	const pl = ppl.filter((p) => p.rolePool === RolePool.PitLead).length;
-
-	// tiara scheduling still broken / not hooked up
 
 	const subs = ppl.map((p) => ({
 		name: p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.uuid,
@@ -45,15 +55,14 @@ export async function generateSchedule() {
 		wantsStrategy: !!(p.preferences && p.preferences.doStrategy),
 		wantsMedia: !!(p.preferences && p.preferences.doMedia),
 		driveTeam: p.rolePool === RolePool.Drive,
+		onlyStrategy: p.rolePool === RolePool.ONLY_Strategy,
+		tiaraPool: p.rolePool === RolePool.TiaraJudge,
+		slotsAttending: p.slotsAttending ?? [],
 		cannotScout:
 			p.rolePool === RolePool.NO_Scouting ||
 			p.rolePool === RolePool.Drive ||
 			p.rolePool === RolePool.PitLead ||
 			p.rolePool === RolePool.ONLY_Strategy,
-		rolePool: p.rolePool,
-		onlyStrategy: p.rolePool === RolePool.ONLY_Strategy,
-		// tiaraPool: p.rolePool === RolePool.TiaraJudge, // later
-		slotsAttending: Array.isArray(p.slotsAttending) ? p.slotsAttending : [],
 		unavailableTimes: '',
 		conventionTalks: '',
 		friday: true,
@@ -81,26 +90,57 @@ export async function generateSchedule() {
 
 		roleStaffing: {
 			Drive: { min: drv, max: drv },
-			Pits: { min: 0, max: 4 },
+			Pits: { min: 2, max: 3 },
 			'Pit Lead': { min: pl ? Math.min(2, pl) : 0, max: pl ? Math.min(2, pl) : 0 },
 			Journalist: { min: 0, max: 1 },
 			Strategy: { min: 0, max: 3 },
 			Media: { min: 0, max: 1 },
-			'Scouting!': { min: 5, max: 6 },
-			'Tiara Judge': { min: 0, max: 2 }
+			'Scouting!': { min: 5, max: 7 },
+			'Tiara Judge': {
+				min: 0,
+				max: Math.max(0, ppl.filter((p) => p.rolePool === RolePool.TiaraJudge).length)
+			}
 		},
 
 		daySchedule: [
 			{
 				label: 'Today',
-				clock: { start: '08:00', lunchStart: '12:00', lunchEnd: '13:00', end: '18:00' },
-				matchesBeforeLunch: nSlots,
-				matchesAfterLunch: 0,
-				...(blockLabels.length === nSlots && nSlots > 0 ? { blockLabels, slotMinutes } : {}),
+				clock: {
+					start: eventTimesString.dayStart,
+					lunchStart: lunchTimesString.lunchStart,
+					lunchEnd: lunchTimesString.lunchEnd,
+					end: eventTimesString.dayEnd
+				},
+				...(slots.slice(0, nSlots).length > 0
+					? {
+							blockLabels: slots
+								.slice(0, nSlots)
+								.map((s) => `${s.startLabel} – ${s.endLabel}`),
+							blockWindows: slots.slice(0, nSlots).map((s) => {
+								const a = new Date(s.startTimestamp).toLocaleTimeString('en-US', {
+									hour12: false
+								});
+								const b = new Date(s.endTimestamp).toLocaleTimeString('en-US', {
+									hour12: false
+								});
+								const p0 = a.split(':').map(Number);
+								const p1 = b.split(':').map(Number);
+								return `${String(p0[0] ?? 0).padStart(2, '0')}:${String(p0[1] ?? 0).padStart(2, '0')}-${String(p1[0] ?? 0).padStart(2, '0')}:${String(p1[1] ?? 0).padStart(2, '0')}`;
+							}),
+							slotMinutes: slots
+								.slice(0, nSlots)
+								.map((s) =>
+									Math.max(1, Math.round((s.endTimestamp - s.startTimestamp) / 60000))
+								),
+							slotNumbers: slots.slice(0, nSlots).map((s) => s.slotNumber)
+						}
+					: {
+							matchesBeforeLunch: Math.max(1, nSlots || 6),
+							matchesAfterLunch: 0
+						}),
 				...(SCOUT_THROUGH_MATCH_SLOTS != null && SCOUT_THROUGH_MATCH_SLOTS > 0
 					? { noScoutingAfterMatch: SCOUT_THROUGH_MATCH_SLOTS }
 					: {})
-				// tiara: which block?? idk yet
 			}
 		],
 
@@ -115,8 +155,8 @@ export async function generateSchedule() {
 		4: Role.Scouting,
 		5: Role.Strategy,
 		6: Role.Media,
-		7: Role.Journalism
-		// 8 tiara enum when i fix the js side
+		7: Role.Journalism,
+		8: Role.TiaraJudge
 	};
 
 	const out = await makeSchedule(cfg);
@@ -157,7 +197,7 @@ export async function generateSlotsNexus() {
 	await fetchData();
 	await clearSlots();
 	const matches = await ourMatches();
-	const lunchTimes = await getLunch();
+	const lunchTimes = await getLunchTimes();
 	const { dayStart, dayEnd } = await getEventTimes();
 	const matchesToday = matches.filter(
 		(m) => m.times.estimatedStartTime > dayStart && m.times.estimatedQueueTime < dayEnd
@@ -230,5 +270,3 @@ export async function generateSlotsDummy() {
 		startTimestamp += 10 * 5 * 60 * 1000;
 	}
 }
-
-export { addPersonToDaySchedule, removePersonFromDaySchedule };
