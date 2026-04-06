@@ -319,10 +319,7 @@ function labelIsFinalsPitCap(lab) {
 	const s = String(lab || '').toLowerCase();
 	if (!s) return false;
 	if (/\bqm\d|\bqual/i.test(s)) return false;
-	return (
-		/\b(finals?|einstein|championship|division\s*final)\b/i.test(s) ||
-		/^f\s*\d/i.test(s)
-	);
+	return /\b(finals?|einstein|championship|division\s*final)\b/i.test(s) || /^f\s*\d/i.test(s);
 }
 
 function strategyOnlySub(sub) {
@@ -339,8 +336,7 @@ function attendingSlotSet(sub, nBlk) {
 	if (!raw || !raw.length) return null;
 	const nums = raw.map(Number).filter((x) => Number.isFinite(x));
 	if (!nums.length) return null;
-	const oneBased =
-		nums.every((n) => n >= 1 && n <= nBlk) && !nums.includes(0);
+	const oneBased = nums.every((n) => n >= 1 && n <= nBlk) && !nums.includes(0);
 	const set = new Set();
 	for (const n of nums) {
 		if (oneBased) set.add(n - 1);
@@ -608,8 +604,7 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 		let cands = people.filter((p) => {
 			if ((p.schedule || [])[blkIdx] !== 'Open') return false;
 			const sub = sMap.get(p.email);
-			if (!isEligible(sub, role, blkIdx, blk, sctCtx, noScouting, pitLeadIds, nBlk))
-				return false;
+			if (!isEligible(sub, role, blkIdx, blk, sctCtx, noScouting, pitLeadIds, nBlk)) return false;
 			if (onlyPreferred && roleAffinity(sub, role, pitLeadIds, noStrategy, blkIdx, sctCtx) <= 0)
 				return false;
 			return true;
@@ -1047,7 +1042,7 @@ function addPersonToDaySchedule(day, person) {
 
 	const providedSchedule = person && person.schedule;
 	const hasScheduleInput = Array.isArray(providedSchedule);
-	const wantName = (person && (person.name || person.displayName) || '').trim();
+	const wantName = ((person && (person.name || person.displayName)) || '').trim();
 
 	const idx = people.findIndex((p) => (p.email || '').toLowerCase() === em);
 
@@ -1100,7 +1095,9 @@ function addPersonToDaySchedule(day, person) {
 
 function removePersonFromDaySchedule(day, email) {
 	const em = String(email || '').toLowerCase();
-	const people = (day && day.people ? day.people : []).filter((p) => (p.email || '').toLowerCase() !== em);
+	const people = (day && day.people ? day.people : []).filter(
+		(p) => (p.email || '').toLowerCase() !== em
+	);
 	return { ...day, people };
 }
 

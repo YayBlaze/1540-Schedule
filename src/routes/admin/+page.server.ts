@@ -21,12 +21,6 @@ import { getLunchTimes, getEventTimes } from '$lib/nexus';
 export const load: PageServerLoad = async () => {
 	const people = await getPeople();
 	let slots = await getSlots();
-	const date = new Date();
-	date.setHours(0, 0, 0, 0);
-	const startOfDay = date.getTime();
-	date.setHours(23, 59, 59, 999);
-	const endOfDay = date.getTime();
-
 	const lunch = await getLunchTimes();
 	const { dayStart, dayEnd } = await getEventTimes();
 	let times;

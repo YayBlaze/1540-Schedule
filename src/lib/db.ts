@@ -175,6 +175,7 @@ export async function importPreferences() {
 		skip_empty_lines: true
 	});
 	const people = await getPeople();
+	people.forEach(async (person) => await setPersonStats(person.uuid, false));
 	for (let entry of records) {
 		let personData = people.find((v) => v.email === entry['Email Address']);
 		if (!personData) continue;

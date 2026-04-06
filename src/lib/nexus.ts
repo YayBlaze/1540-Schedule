@@ -18,8 +18,10 @@ export async function fetchData() {
 		console.log('Error getting live event status:', errorMessage);
 		return false;
 	}
-
 	data = await response.json();
+	console.log(
+		`Pulled new Nexus data at ${new Date(data.dataAsOfTime).toLocaleTimeString('en-US', { hour12: false })}`
+	);
 }
 
 export async function getEventTimes() {
@@ -124,7 +126,7 @@ export function firstMatch() {
 
 export function formatMatchLabel(label: string, negativeOffset: boolean = false) {
 	let number = parseInt(label.split(' ')[1]);
-	if (negativeOffset) number -= 1;
+	if (negativeOffset) number -= number > 1 ? 1 : 0;
 
 	const prefixes: [string, string][] = [
 		['Qualification', 'QM'],

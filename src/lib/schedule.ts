@@ -1,17 +1,18 @@
-import { getPeople, getSlots, setPersonSchedule, setSlot } from '$lib/db';
-import { lunch as getLunch, getLastMatch, ourMatches, formatMatchLabel } from '$lib/nexus';
+import { clearSlots, getPeople, getSlots, setPersonSchedule, setSlot } from '$lib/db';
+import {
+	getLunchTimes as getLunch,
+	lastMatch as getLastMatch,
+	ourMatches,
+	formatMatchLabel,
+	fetchData,
+	getEventTimes
+} from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const req = createRequire(import.meta.url);
-const __d = dirname(fileURLToPath(import.meta.url));
-const {
+import {
 	makeSchedule,
 	addPersonToDaySchedule,
 	removePersonFromDaySchedule
-} = req(join(__d, 'aldous', 'scheduling.js'));
+} from '$lib/aldous/scheduling.js';
 
 const SCOUT_THROUGH_MATCH_SLOTS: number | null = null;
 
@@ -23,12 +24,10 @@ export async function generateSchedule() {
 	const nSlots = Math.min(11, (slots || []).length);
 
 	const orderedSlots = [...(slots || [])].sort((a, b) => a.slotNumber - b.slotNumber);
-	const blockLabels = orderedSlots
+	const blockLabels = orderedSlots.slice(0, nSlots).map((s) => `${s.startLabel}-${s.endLabel}`);
+	const slotMinutes = orderedSlots
 		.slice(0, nSlots)
-		.map((s) => `${s.startLabel}-${s.endLabel}`);
-	const slotMinutes = orderedSlots.slice(0, nSlots).map((s) =>
-		Math.max(1, Math.round((s.endTimestamp - s.startTimestamp) / 60000))
-	);
+		.map((s) => Math.max(1, Math.round((s.endTimestamp - s.startTimestamp) / 60000)));
 
 	const drv = ppl.filter((p) => p.rolePool === RolePool.Drive).length;
 	const pl = ppl.filter((p) => p.rolePool === RolePool.PitLead).length;
@@ -87,8 +86,8 @@ export async function generateSchedule() {
 			Journalist: { min: 0, max: 1 },
 			Strategy: { min: 0, max: 3 },
 			Media: { min: 0, max: 1 },
-			'Scouting!': { min: 0, max: 7 }
-			// 'Tiara Judge': ??? min/max
+			'Scouting!': { min: 5, max: 6 },
+			'Tiara Judge': { min: 0, max: 2 }
 		},
 
 		daySchedule: [
@@ -97,9 +96,7 @@ export async function generateSchedule() {
 				clock: { start: '08:00', lunchStart: '12:00', lunchEnd: '13:00', end: '18:00' },
 				matchesBeforeLunch: nSlots,
 				matchesAfterLunch: 0,
-				...(blockLabels.length === nSlots && nSlots > 0
-					? { blockLabels, slotMinutes }
-					: {}),
+				...(blockLabels.length === nSlots && nSlots > 0 ? { blockLabels, slotMinutes } : {}),
 				...(SCOUT_THROUGH_MATCH_SLOTS != null && SCOUT_THROUGH_MATCH_SLOTS > 0
 					? { noScoutingAfterMatch: SCOUT_THROUGH_MATCH_SLOTS }
 					: {})
@@ -140,50 +137,77 @@ export async function generateSchedule() {
 	}
 }
 
-export async function generateSlotsNexus() {
+export async function updateSlotTiming() {
+	await fetchData();
 	const matches = await ourMatches();
-	const date = new Date();
-	date.setHours(0, 0, 0, 0);
-	const startOfDay = date.getTime();
-	date.setHours(23, 59, 59, 999);
-	const endOfDay = date.getDate();
-	const lunchTimes = getLunch();
-	let id = 0;
-	for (let i = 0; i < matches.length; i++) {
-		let match = matches[i];
-		let nextMath = matches[i + 1];
-		if (i + 1 >= matches.length) {
+	const slots = await getSlots();
+	for (let slot of slots) {
+		if (!slot.allowUpdate) continue;
+		let startMatch = matches.find((match) => formatMatchLabel(match.label) == slot.startLabel);
+		slot.startTimestamp = startMatch?.times.estimatedStartTime ?? slot.startTimestamp;
+		let endMatch = matches.find((match) => formatMatchLabel(match.label) == slot.endLabel);
+		slot.endTimestamp = endMatch?.times.estimatedStartTime ?? slot.endTimestamp;
+	}
+	console.log(
+		`Updated Nexus slot timing at ${new Date().toLocaleTimeString('en-US', { hour12: false })}`
+	);
+}
+
+export async function generateSlotsNexus() {
+	await fetchData();
+	await clearSlots();
+	const matches = await ourMatches();
+	const lunchTimes = await getLunch();
+	const { dayStart, dayEnd } = await getEventTimes();
+	const matchesToday = matches.filter(
+		(m) => m.times.estimatedStartTime > dayStart && m.times.estimatedQueueTime < dayEnd
+	);
+	let id = 1;
+	let slotData = {
+		slotNumber: id,
+		startTimestamp: dayStart,
+		endTimestamp: matchesToday[0].times.estimatedStartTime,
+		startLabel: 'Start of Day',
+		endLabel: formatMatchLabel(matchesToday[0].label, true),
+		allowUpdate: true
+	};
+	await setSlot(slotData);
+	id++;
+	for (let i = 0; i < matchesToday.length; i++) {
+		let match = matchesToday[i];
+		let nextMath = matchesToday[i + 1];
+		if (i + 1 >= matchesToday.length) {
 			const lastMatch = getLastMatch();
 			let slotData = {
-				id,
+				slotNumber: id,
 				startTimestamp: match.times.estimatedStartTime,
 				endTimestamp: lastMatch.times.estimatedStartTime + 5 * 60 * 1000,
 				startLabel: formatMatchLabel(match.label),
-				endLabel: 'End of Day'
+				endLabel: 'End of Day',
+				allowUpdate: true
 			};
 			await setSlot(slotData);
 			break;
 		}
-		// if (match.times.estimatedStartTime < startOfDay || match.times.estimatedQueueTime > endOfDay)
-		// 	continue;
 		let slotData = {
-			id,
+			slotNumber: id,
 			startTimestamp: match.times.estimatedStartTime,
 			endTimestamp: nextMath.times.estimatedStartTime,
 			startLabel: formatMatchLabel(match.label),
-			endLabel: formatMatchLabel(nextMath.label, true)
+			endLabel: formatMatchLabel(nextMath.label, true),
+			allowUpdate: true
 		};
 		if (
-			match.times.estimatedStartTime < lunchTimes.starts &&
-			nextMath.times.estimatedStartTime > lunchTimes.ends
+			match.times.estimatedStartTime < lunchTimes.startTimestamp &&
+			nextMath.times.estimatedStartTime > lunchTimes.endTimestamp
 		) {
-			// console.log(match, nextMath);
 			slotData = {
-				id,
+				slotNumber: id,
 				startTimestamp: match.times.estimatedStartTime,
-				endTimestamp: lunchTimes.starts,
+				endTimestamp: lunchTimes.startTimestamp,
 				startLabel: formatMatchLabel(match.label),
-				endLabel: 'Lunch'
+				endLabel: 'Lunch',
+				allowUpdate: true
 			};
 		}
 		await setSlot(slotData);
@@ -195,11 +219,12 @@ export async function generateSlotsDummy() {
 	let startTimestamp = Date.now();
 	for (let id = 1; id <= 11; id++) {
 		await setSlot({
-			id,
+			slotNumber: id,
 			startTimestamp,
 			endTimestamp: startTimestamp + 10 * 5 * 60 * 1000,
 			startLabel: matchNum > 0 ? `QM${matchNum}` : `QM${matchNum + 1}`,
-			endLabel: `QM${matchNum + 10}`
+			endLabel: `QM${matchNum + 10}`,
+			allowUpdate: true
 		});
 		matchNum += 10;
 		startTimestamp += 10 * 5 * 60 * 1000;

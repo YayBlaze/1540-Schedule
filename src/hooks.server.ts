@@ -1,6 +1,6 @@
 import { clearSessions, initDB, isValidSession } from '$lib/db';
 import { fetchData } from '$lib/nexus';
-import { generateSlotsNexus, updateSlotTiming } from '$lib/schedule';
+import { updateSlotTiming } from '$lib/schedule';
 import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 
 export const init: ServerInit = async () => {
