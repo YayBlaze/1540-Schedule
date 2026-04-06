@@ -19,8 +19,6 @@ import { makeSchedule } from '$lib/aldous/scheduling.js';
 
 export { addPersonToDaySchedule, defaultLightSchedule, removePersonFromDaySchedule } from '$lib/aldous/scheduling.js';
 
-const SCOUT_THROUGH_MATCH_SLOTS: number | null = null;
-
 export async function generateSchedule() {
 	await clearSchedule();
 	await generateSlotsNexus();
@@ -40,6 +38,7 @@ export async function generateSchedule() {
 	const slots = [...((await getSlots()) || [])].sort((a, b) => a.slotNumber - b.slotNumber);
 	const ppl = (people || []).filter((p) => p && p.attendingEvent);
 	const nSlots = Math.min(11, slots.length);
+	const row = slots.slice(0, nSlots);
 
 	const drv = ppl.filter((p) => p.rolePool === RolePool.Drive).length;
 	const pl = ppl.filter((p) => p.rolePool === RolePool.PitLead).length;
@@ -111,12 +110,10 @@ export async function generateSchedule() {
 					lunchEnd: lunchTimesString.lunchEnd,
 					end: eventTimesString.dayEnd
 				},
-				...(slots.slice(0, nSlots).length > 0
+				...(row.length > 0
 					? {
-							blockLabels: slots
-								.slice(0, nSlots)
-								.map((s) => `${s.startLabel} – ${s.endLabel}`),
-							blockWindows: slots.slice(0, nSlots).map((s) => {
+							blockLabels: row.map((s) => `${s.startLabel}-${s.endLabel}`),
+							blockWindows: row.map((s) => {
 								const a = new Date(s.startTimestamp).toLocaleTimeString('en-US', {
 									hour12: false
 								});
@@ -127,20 +124,15 @@ export async function generateSchedule() {
 								const p1 = b.split(':').map(Number);
 								return `${String(p0[0] ?? 0).padStart(2, '0')}:${String(p0[1] ?? 0).padStart(2, '0')}-${String(p1[0] ?? 0).padStart(2, '0')}:${String(p1[1] ?? 0).padStart(2, '0')}`;
 							}),
-							slotMinutes: slots
-								.slice(0, nSlots)
-								.map((s) =>
-									Math.max(1, Math.round((s.endTimestamp - s.startTimestamp) / 60000))
-								),
-							slotNumbers: slots.slice(0, nSlots).map((s) => s.slotNumber)
+							slotMinutes: row.map((s) =>
+								Math.max(1, Math.round((s.endTimestamp - s.startTimestamp) / 60000))
+							),
+							slotNumbers: row.map((s) => s.slotNumber)
 						}
 					: {
 							matchesBeforeLunch: Math.max(1, nSlots || 6),
 							matchesAfterLunch: 0
-						}),
-				...(SCOUT_THROUGH_MATCH_SLOTS != null && SCOUT_THROUGH_MATCH_SLOTS > 0
-					? { noScoutingAfterMatch: SCOUT_THROUGH_MATCH_SLOTS }
-					: {})
+						})
 			}
 		],
 
@@ -255,6 +247,7 @@ export async function generateSlotsNexus() {
 	}
 }
 export async function generateSlotsDummy() {
+	await clearSlots();
 	let matchNum = 0;
 	let startTimestamp = Date.now();
 	for (let id = 1; id <= 11; id++) {
