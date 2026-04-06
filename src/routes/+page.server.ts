@@ -36,7 +36,8 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 			Strategy: await getNamesInRole(Role.Strategy, sn),
 			Drive: await getNamesInRole(Role.Drive, sn),
 			Media: await getNamesInRole(Role.Media, sn),
-			Journalism: await getNamesInRole(Role.Journalism, sn)
+			Journalism: await getNamesInRole(Role.Journalism, sn),
+			'Tiara Judge': await getNamesInRole(Role.TiaraJudge, sn)
 		});
 	}
 
@@ -55,7 +56,8 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 			startTimestamp: currentSlotDetailed.endTimestamp,
 			endTimestamp: currentSlotDetailed.endTimestamp,
 			startLabel: 'End of Day',
-			endLabel: ''
+			endLabel: '',
+			allowUpdate: true
 		};
 	}
 

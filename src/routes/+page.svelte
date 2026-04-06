@@ -34,6 +34,8 @@
 				return '--green1';
 			case Role.Journalism:
 				return '--yellow';
+			case Role.TiaraJudge:
+				return '--purple2';
 			default:
 				return '--black';
 		}

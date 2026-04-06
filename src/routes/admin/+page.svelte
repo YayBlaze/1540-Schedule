@@ -97,7 +97,10 @@
 	<div class="m-auto flex w-[95%] justify-around gap-5">
 		<div class="item h-100">
 			<h1 class="text-xl">People</h1>
-			<p class="text-md pb-1 text-(--grey)">Add and remove people</p>
+			<p class="text-md pb-1 text-(--grey)">
+				Add and remove people: ({people.filter((person) => person.attendingEvent)
+					.length}/{people.length}) are attending
+			</p>
 			<form
 				action="?/newPerson"
 				method="post"
@@ -135,7 +138,7 @@
 						<div class="flex h-fit items-center justify-around gap-1">
 							<form action="?/updateStatus" method="post">
 								<input type="hidden" name="id" value={person.uuid} />
-								<button id="submit" class="button-secondary">
+								<button id="submit" class={person.attendingEvent ? 'button-green' : 'button-red'}>
 									{person.attendingEvent ? 'Attending' : 'Missing'}
 								</button>
 							</form>
@@ -361,6 +364,41 @@
 		transition-duration: 200ms;
 	}
 	.button-destructive:hover {
+		background-color: var(--black2);
+		border: 1px solid var(--red);
+		color: var(--red);
+	}
+
+	.button-green {
+		height: fit-content;
+		border: 1px solid #3c3c3c;
+		border-radius: 10px;
+		color: var(--black);
+		background-color: var(--green4);
+		padding: 0.5rem;
+		font-size: 0.875rem;
+		transition-property: color, background-color, border;
+		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+		transition-duration: 200ms;
+	}
+	.button-green:hover {
+		background-color: var(--black2);
+		border: 1px solid var(--green4);
+		color: var(--green4);
+	}
+	.button-red {
+		height: fit-content;
+		border: 1px solid #3c3c3c;
+		border-radius: 10px;
+		background-color: var(--red);
+		padding: 0.5rem;
+		color: var(--black);
+		font-size: 0.875rem;
+		transition-property: color, background-color, border;
+		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+		transition-duration: 200ms;
+	}
+	.button-red:hover {
 		background-color: var(--black2);
 		border: 1px solid var(--red);
 		color: var(--red);

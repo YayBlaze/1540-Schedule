@@ -17,7 +17,11 @@ import {
 import { Role, RolePool } from '$lib/types';
 import { makeSchedule } from '$lib/aldous/scheduling.js';
 
-export { addPersonToDaySchedule, defaultLightSchedule, removePersonFromDaySchedule } from '$lib/aldous/scheduling.js';
+export {
+	addPersonToDaySchedule,
+	defaultLightSchedule,
+	removePersonFromDaySchedule
+} from '$lib/aldous/scheduling.js';
 
 export async function generateSchedule() {
 	await clearSchedule();
@@ -189,6 +193,7 @@ export async function generateSlotsNexus() {
 	await fetchData();
 	await clearSlots();
 	const matches = await ourMatches();
+	if (!matches || matches.length < 1) return await generateSlotsDummy();
 	const lunchTimes = await getLunchTimes();
 	const { dayStart, dayEnd } = await getEventTimes();
 	const matchesToday = matches.filter(
