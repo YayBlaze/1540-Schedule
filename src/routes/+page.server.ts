@@ -1,8 +1,8 @@
-import { getPeople, getNamesInRole, getSchedule, getSlots, msToSlot } from '$lib/db';
+import { getPeople, getNamesInRole, getSchedule, getSlots, msToSlot, getPerson } from '$lib/db';
 import { Role } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, cookies }) => {
 	const scheduleRAW = await getSchedule();
 	const slots = await getSlots();
 	const people = await getPeople();
@@ -18,7 +18,10 @@ export const load: PageServerLoad = async ({ url }) => {
 	let schedule = scheduleRAW.map((row) => ({
 		name: peopleLookUp[row.personUUID],
 		slots: Object.keys(row)
-			.filter((key) => key.startsWith('slot'))
+			.filter(
+				(key) =>
+					key.startsWith('slot') && parseInt(key.slice(-1)) <= (slots.at(-1)?.slotNumber ?? 0)
+			)
 			.map((key) => row[key as keyof typeof row] as Role)
 	}));
 
@@ -33,12 +36,19 @@ export const load: PageServerLoad = async ({ url }) => {
 			Strategy: await getNamesInRole(Role.Strategy, sn),
 			Drive: await getNamesInRole(Role.Drive, sn),
 			Media: await getNamesInRole(Role.Media, sn),
-			Journalism: await getNamesInRole(Role.Journalism, sn)
+			Journalism: await getNamesInRole(Role.Journalism, sn),
+			'Tiara Judge': await getNamesInRole(Role.TiaraJudge, sn)
 		});
 	}
 
 	let currentSlot = await msToSlot(Date.now());
-	let nextSlot = await slots[currentSlot.num];
+	if (!currentSlot) {
+		currentSlot = {
+			num: 0,
+			label: 'None'
+		};
+	}
+	let nextSlot = slots[currentSlot.num];
 	if (!nextSlot) {
 		let currentSlotDetailed = slots[currentSlot.num - 1];
 		nextSlot = {
@@ -46,9 +56,29 @@ export const load: PageServerLoad = async ({ url }) => {
 			startTimestamp: currentSlotDetailed.endTimestamp,
 			endTimestamp: currentSlotDetailed.endTimestamp,
 			startLabel: 'End of Day',
-			endLabel: ''
+			endLabel: '',
+			allowUpdate: true
 		};
 	}
 
-	return { view, schedule, slots, roles, currentSlot, nextSlot };
+	let personUUID = cookies.get('uuid');
+	let currentPerson: {
+		personName: string | null;
+		currentRole: Role | null;
+		nextRole: Role | null;
+	} = {
+		personName: null,
+		currentRole: null,
+		nextRole: null
+	};
+	if (personUUID) {
+		let personName = (await getPerson(personUUID))?.displayName;
+		if (!personName) throw new Error('invalid personUUID');
+		let personSchedule = schedule.find((v) => v.name == personName);
+		let currentRole = personSchedule?.slots[currentSlot.num - 1] ?? null;
+		let nextRole = personSchedule?.slots[currentSlot.num] ?? null;
+		currentPerson = { personName, currentRole, nextRole };
+	}
+
+	return { view, schedule, slots, roles, currentSlot, nextSlot, currentPerson };
 };

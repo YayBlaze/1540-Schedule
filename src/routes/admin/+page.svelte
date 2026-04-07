@@ -2,15 +2,46 @@
 	import { goto } from '$app/navigation';
 	import type { PageProps } from './$types';
 	import { RolePool } from '$lib/types';
+	import { team } from '$lib/config';
 	let { data }: PageProps = $props();
 
 	var people = $derived(data.people);
 	var times = $derived(data.times);
+	var date = $derived(data.date);
+	var slots = $derived(data.slots);
+	var fromDB = $derived(data.fromDB);
+	// svelte-ignore state_referenced_locally
+	var slotsToEdit = $state(slots);
+	while (slotsToEdit.length < 11) {
+		slotsToEdit.push({
+			slotNumber: slotsToEdit.length + 1,
+			startLabel: '',
+			startTimestamp: 0,
+			endLabel: '',
+			endTimestamp: 0,
+			allowUpdate: true
+		});
+	}
 	var { lunchStart, lunchEnd, dayStart, dayEnd } = $derived(times);
+
+	var newFirstName = $state('');
+	var newLastName = $state('');
+	var newEmail = $derived(
+		newFirstName && newLastName
+			? `${newLastName.toLowerCase()}${newFirstName.charAt(0).toLowerCase()}@catlin.edu`
+			: ''
+	);
+
+	function toDatetimeLocal(ms: number) {
+		if (!ms) return '';
+		const d = new Date(ms);
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	}
 </script>
 
 <nav class="flex h-fit w-full items-center justify-between bg-(--white) p-2 pr-5 pl-5">
-	<h1 class="text-4xl text-(--black)">1540 Admin</h1>
+	<h1 class="text-4xl text-(--black)">{team} Admin</h1>
 	<button
 		onclick={() => goto('/')}
 		class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
@@ -19,16 +50,59 @@
 </nav>
 
 <div class="flex w-full flex-col justify-around gap-5 p-3">
-	<div class="item flex items-center justify-between">
-		<h1 class="text-xl">Generate Schedule</h1>
-		<form action="?/generate" method="post">
-			<button class="button-primary" id="submit">Generate</button>
-		</form>
+	<div class="item flex flex-col gap-2">
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Generate Schedule</h1>
+				<p class="pb-1 text-sm text-(--red)">
+					Warning: This action will re-generate the schedule and slots for all people
+				</p>
+			</div>
+			<form action="?/generate" method="post">
+				<button class="button-primary" id="submit">Generate Schedule</button>
+			</form>
+		</div>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Generate Slots</h1>
+				<p class="pb-1 text-sm text-(--grey)">
+					Re-generate the slots without affecting the schedule
+				</p>
+			</div>
+			<form action="?/generate" method="post">
+				<button class="button-primary" id="submit">Generate Slots</button>
+			</form>
+		</div>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Import Preferences</h1>
+				<p class="pb-1 text-sm text-(--grey)">
+					Imports preferences from a csv file located in static/prefs.csv
+				</p>
+			</div>
+			<form action="?/importPrefs" method="post">
+				<button class="button-primary" id="submit">Import Preferences</button>
+			</form>
+		</div>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Import People</h1>
+				<p class="pb-1 text-sm text-(--grey)">
+					Imports people from a csv file located in static/people.csv
+				</p>
+			</div>
+			<form action="?/importPeople" method="post">
+				<button class="button-primary" id="submit">Import People</button>
+			</form>
+		</div>
 	</div>
 	<div class="m-auto flex w-[95%] justify-around gap-5">
 		<div class="item h-100">
 			<h1 class="text-xl">People</h1>
-			<p class="text-md pb-1 text-(--grey)">Add and remove people</p>
+			<p class="text-md pb-1 text-(--grey)">
+				Add and remove people: ({people.filter((person) => person.attendingEvent)
+					.length}/{people.length}) are attending
+			</p>
 			<form
 				action="?/newPerson"
 				method="post"
@@ -39,12 +113,21 @@
 					name="firstName"
 					placeholder="First Name"
 					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
+					bind:value={newFirstName}
 				/>
 				<input
 					type="text"
 					name="lastName"
 					placeholder="Last Name"
 					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
+					bind:value={newLastName}
+				/>
+				<input
+					type="text"
+					name="email"
+					placeholder="Email"
+					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
+					bind:value={newEmail}
 				/>
 				<button id="submit" class="button-primary">Add</button>
 			</form>
@@ -57,7 +140,7 @@
 						<div class="flex h-fit items-center justify-around gap-1">
 							<form action="?/updateStatus" method="post">
 								<input type="hidden" name="id" value={person.uuid} />
-								<button id="submit" class="button-secondary">
+								<button id="submit" class={person.attendingEvent ? 'button-green' : 'button-red'}>
 									{person.attendingEvent ? 'Attending' : 'Missing'}
 								</button>
 							</form>
@@ -95,6 +178,8 @@
 					<option value={RolePool.PitLead}>Pit Lead</option>
 					<option value={RolePool.Drive}>Drive Team</option>
 					<option value={RolePool.NO_Scouting}>No Scouting</option>
+					<option value={RolePool.ONLY_Strategy}>Strategy Only</option>
+					<option value={RolePool.TiaraJudge}>Tiara Judge</option>
 				</select>
 				<button id="submit" class="button-primary">Assign</button>
 			</form>
@@ -125,9 +210,17 @@
 		<form method="post" action="?/saveCompSettings" class="flex items-center justify-around gap-2">
 			<input
 				type="text"
+				name="date"
+				placeholder="Event Date"
+				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				bind:value={date}
+			/>
+			<input
+				type="text"
 				name="dayStart"
 				placeholder="Event Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				style="color: var({fromDB.event ? '--yellow' : '--white'});"
 				bind:value={dayStart}
 			/>
 			<input
@@ -135,6 +228,7 @@
 				name="lunchStart"
 				placeholder="Lunch Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				style="color: var({fromDB.lunch ? '--yellow' : '--white'});"
 				bind:value={lunchStart}
 			/>
 			<input
@@ -142,6 +236,7 @@
 				name="lunchEnd"
 				placeholder="Lunch End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				style="color: var({fromDB.lunch ? '--yellow' : '--white'});"
 				bind:value={lunchEnd}
 			/>
 			<input
@@ -149,6 +244,7 @@
 				name="dayEnd"
 				placeholder="Event End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				style="color: var({fromDB.event ? '--yellow' : '--white'});"
 				bind:value={dayEnd}
 			/>
 			<button
@@ -160,6 +256,63 @@
 			>
 		</form>
 	</div>
+
+	<div class="item">
+		<h1 class="text-xl">Edit time slots</h1>
+		<p class="text-md pb-1 text-(--grey)">Set label and timestamps of the time slots</p>
+		<p class="pb-1 text-sm text-(--grey)">
+			To remove a slot, set the start label to nothing *not recommended
+		</p>
+		<div class="flex w-full flex-wrap items-center gap-4">
+			{#each slotsToEdit as slot}
+				<form
+					class="flex h-73 w-[30%] flex-col items-center justify-around gap-2 rounded-2xl border border-(--white) p-2"
+					method="post"
+					action="?/editSlot"
+				>
+					<h1>Slot {slot.slotNumber}</h1>
+					<input type="hidden" name="slotNum" value={slot.slotNumber} />
+					<input
+						type="text"
+						name="startLabel"
+						placeholder="Start Label"
+						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						value={slot.startLabel}
+					/>
+					<input
+						type="datetime-local"
+						name="startTimestamp"
+						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						value={toDatetimeLocal(slot.startTimestamp)}
+					/>
+					<input
+						type="text"
+						name="endLabel"
+						placeholder="End Label"
+						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						value={slot.endLabel}
+					/>
+					<input
+						type="datetime-local"
+						name="endTimestamp"
+						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						placeholder="End Timestamp"
+						value={toDatetimeLocal(slot.endTimestamp)}
+					/>
+					<div class="flex justify-center gap-2">
+						<input
+							type="checkbox"
+							name="allowUpdates"
+							id="allowUpdates"
+							checked={slot.allowUpdate}
+						/>
+						<label for="allowUpdates">Allow auto updates from nexus?</label>
+					</div>
+					<button class="button-primary" id="submit">Save</button>
+				</form>
+			{/each}
+		</div>
+	</div>
 </div>
 
 <style>
@@ -169,7 +322,7 @@
 		width: 95%;
 		margin: auto;
 		border: 1px solid var(--white);
-		border-radius: 5px;
+		border-radius: 20px;
 	}
 
 	.button-primary {
@@ -188,22 +341,6 @@
 		color: var(--white);
 	}
 
-	.button-secondary {
-		height: fit-content;
-		border-radius: 10px;
-		background-color: #3c3c3c;
-		padding: 0.5rem;
-		color: var(--white);
-		font-size: 0.875rem;
-		transition-property: color, background-color;
-		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-		transition-duration: 200ms;
-	}
-	.button-secondary:hover {
-		background-color: var(--white);
-		color: var(--black2);
-	}
-
 	.button-destructive {
 		height: fit-content;
 		border: 1px solid #3c3c3c;
@@ -217,6 +354,41 @@
 		transition-duration: 200ms;
 	}
 	.button-destructive:hover {
+		background-color: var(--black2);
+		border: 1px solid var(--red);
+		color: var(--red);
+	}
+
+	.button-green {
+		height: fit-content;
+		border: 1px solid #3c3c3c;
+		border-radius: 10px;
+		color: var(--black);
+		background-color: var(--green4);
+		padding: 0.5rem;
+		font-size: 0.875rem;
+		transition-property: color, background-color, border;
+		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+		transition-duration: 200ms;
+	}
+	.button-green:hover {
+		background-color: var(--black2);
+		border: 1px solid var(--green4);
+		color: var(--green4);
+	}
+	.button-red {
+		height: fit-content;
+		border: 1px solid #3c3c3c;
+		border-radius: 10px;
+		background-color: var(--red);
+		padding: 0.5rem;
+		color: var(--black);
+		font-size: 0.875rem;
+		transition-property: color, background-color, border;
+		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+		transition-duration: 200ms;
+	}
+	.button-red:hover {
 		background-color: var(--black2);
 		border: 1px solid var(--red);
 		color: var(--red);

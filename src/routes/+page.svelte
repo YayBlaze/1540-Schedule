@@ -3,6 +3,7 @@
 	import { Role } from '$lib/types';
 	import { onDestroy, onMount } from 'svelte';
 	import type { PageProps } from './$types';
+	import { team } from '$lib/config';
 
 	let { data }: PageProps = $props();
 
@@ -11,8 +12,12 @@
 	let roles = $derived(data.roles);
 	let currentSlot = $derived(data.currentSlot);
 	let nextSlot = $derived(data.nextSlot);
-	let timeToNextSlot = $derived(msToRelative(nextSlot.startTimestamp - Date.now()));
+	let timeToNextSlot = $derived(msToRelative(nextSlot?.startTimestamp ?? Date.now() - Date.now()));
 	let view = $derived(data.view);
+	let currentPerson = $derived(data.currentPerson);
+	let personName = $derived(currentPerson.personName);
+	let currentRole = $derived(currentPerson.currentRole);
+	let nextRole = $derived(currentPerson.nextRole);
 
 	function getColor(role: Role) {
 		switch (role) {
@@ -30,6 +35,8 @@
 				return '--green1';
 			case Role.Journalism:
 				return '--yellow';
+			case Role.TiaraJudge:
+				return '--purple2';
 			default:
 				return '--black';
 		}
@@ -52,6 +59,10 @@
 		return string;
 	}
 
+	const msToTime = (ms: number) => {
+		return new Date(ms).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' });
+	};
+
 	function calcRoleTime(role: Role, name: string) {
 		const personSchedule = schedule.find((v) => v.name == name);
 		if (!personSchedule) return 0;
@@ -67,19 +78,16 @@
 		return msToRelative(totalMS);
 	}
 
-	function timeView() {
-		goto('/?view=time');
-	}
-	function personView() {
-		goto('/?view=person');
-	}
+	const timeView = () => goto('/?view=time');
+	const personView = () => goto('/?view=person');
 
 	let interval: NodeJS.Timeout;
 	onMount(() => {
-		interval = setInterval(
-			() => (timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now())),
-			30 * 1000
-		);
+		console.log(personName);
+		if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
+		interval = setInterval(() => {
+			if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
+		}, 30 * 1000);
 	});
 
 	onDestroy(() => clearInterval(interval));
@@ -87,7 +95,7 @@
 
 <nav class="mb-5 flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<div class="flex items-center justify-start gap-1">
-		<h1 class="pr-5 text-4xl text-(--black)">1540 Schedule</h1>
+		<h1 class="pr-5 text-4xl text-(--black)">{team} Schedule</h1>
 		{#if view == 'time'}
 			<button
 				class="rounded-md border border-(--white) bg-(--black) p-2 text-(--white)"
@@ -107,19 +115,45 @@
 		{/if}
 	</div>
 
-	<button
-		onclick={() => goto('/admin')}
-		class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
-		>Admin</button
-	>
+	<div>
+		<button
+			onclick={() => goto('/login')}
+			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
+			>Login</button
+		>
+		<button
+			onclick={() => goto('/admin')}
+			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
+			>Admin</button
+		>
+	</div>
 </nav>
 
 <div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
-	<p>Current Slot: {currentSlot.label}</p>
-	<p>|</p>
-	<p>
-		Next Slot: {nextSlot.startLabel}-{nextSlot.endLabel} in {timeToNextSlot}
-	</p>
+	<div class="flex flex-col items-center justify-center gap-2">
+		<p>Current Slot: {currentSlot.label}</p>
+		{#if currentRole}
+			<p style="color: var({currentRole != Role.Open ? getColor(currentRole) : 'white'}">
+				Current Role: {currentRole}
+			</p>
+		{/if}
+	</div>
+	{#if nextSlot}
+		<div class="flex flex-col items-center justify-center gap-2 border-l-2 border-(--white) pl-2">
+			<p>
+				Next Slot: {nextSlot.startLabel != ''
+					? nextSlot.startLabel
+					: msToTime(nextSlot.slotNumber)}-{nextSlot.endLabel != ''
+					? nextSlot.endLabel
+					: msToTime(nextSlot.endTimestamp)} in {timeToNextSlot}
+			</p>
+			{#if nextRole}
+				<p style="color: var({nextRole != Role.Open ? getColor(nextRole) : 'white'}">
+					Next Role: {nextRole}
+				</p>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 {#if view == 'person'}
@@ -134,7 +168,13 @@
 							style="font-weight: {slot.startTimestamp < Date.now() &&
 							slot.endTimestamp > Date.now()
 								? 900
-								: 400};">{slot.startLabel}-{slot.endLabel}</th
+								: 400}; color: var({slot.startTimestamp < Date.now() &&
+							slot.endTimestamp > Date.now()
+								? '--yellow'
+								: '--white'})"
+						>
+							{#if slot.startLabel != ''}<p>{slot.startLabel}-{slot.endLabel}</p>{/if}
+							<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p></th
 						>
 					{/each}
 				</tr>
@@ -142,7 +182,13 @@
 			<tbody>
 				{#each schedule as person}
 					<tr>
-						<td class="p-2">{person.name}</td>
+						<td
+							class="p-2"
+							style="color: var({personName == person.name
+								? '--yellow'
+								: '--white'}); font-weight: {personName == person.name ? 900 : 400}"
+							>{person.name}</td
+						>
 						{#each person.slots as slot}
 							{#if slot}
 								<td
@@ -150,7 +196,10 @@
 									style="background-color: var({getColor(slot)}); color: var({slot ===
 										Role.Strategy || slot === Role.Open
 										? '--white'
-										: '--black'});">{slot}</td
+										: '--black'});"
+									onclick={() => {
+										if (slot === Role.Scouting) window.open('https://scout.team1540.org', '_blank');
+									}}>{slot}</td
 								>
 							{/if}
 						{/each}
@@ -163,7 +212,17 @@
 	<div class="nunito flex size-fit flex-col items-center justify-around gap-5">
 		{#each slots as slot}
 			<div class="flex w-[90%] justify-between gap-5 rounded-md bg-(--black2) p-5">
-				<p class="w-fit p-1 font-black text-nowrap">{slot.startLabel}-{slot.endLabel}</p>
+				<div
+					class="w-fit p-1 font-black text-nowrap"
+					style="font-weight: {slot.startTimestamp < Date.now() && slot.endTimestamp > Date.now()
+						? 900
+						: 400}; color: var({slot.startTimestamp < Date.now() && slot.endTimestamp > Date.now()
+						? '--yellow'
+						: '--white'})"
+				>
+					{#if slot.startLabel != ''}<p>{slot.startLabel}-{slot.endLabel}</p>{/if}
+					<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p>
+				</div>
 				<div class="flex flex-wrap items-center gap-3">
 					{#each Object.keys(roles[slot.slotNumber - 1]) as role}
 						{#if roles[slot.slotNumber - 1][role as Role].length > 0}

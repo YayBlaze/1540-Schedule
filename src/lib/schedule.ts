@@ -1,31 +1,65 @@
 import {
+	clearSchedule,
 	clearSlots,
-	getMilestones,
-	getPeople,
+	getPeopleAtEvent,
 	getSlots,
-	randomizePreferences,
 	setPersonSchedule,
 	setSlot
 } from '$lib/db';
-import { getLunchTimes, ourMatches, formatMatchLabel, getAllianceSelectionTimes } from '$lib/nexus';
+import {
+	getLunchTimes,
+	ourMatches,
+	formatMatchLabel,
+	fetchData,
+	getEventTimes,
+	lastMatch as getLastMatch
+} from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { makeSchedule } from '$lib/aldous/scheduling.js';
 
-const req = createRequire(import.meta.url);
-const __d = dirname(fileURLToPath(import.meta.url));
-const { makeSchedule } = req(join(__d, 'aldous', 'scheduling.js'));
+export {
+	addPersonToDaySchedule,
+	defaultLightSchedule,
+	removePersonFromDaySchedule
+} from '$lib/aldous/scheduling.js';
+
+// nexus strings are weird; tweak these if elims/finals dont light up
+function looksElim(s: { startLabel: string; endLabel: string }) {
+	const t = `${s.startLabel} ${s.endLabel}`.toLowerCase();
+	if (/prelim/.test(t)) return false;
+	return /elimination|elims|playoff.*elim|quarter|\bqf\b|\bsf\b|semi.?final/i.test(t);
+}
+
+function looksFinals(s: { startLabel: string; endLabel: string }) {
+	const t = `${s.startLabel} ${s.endLabel}`.toLowerCase();
+	if (/semi/.test(t)) return false;
+	return /championship|award|winner|final four|gold round|^\s*finals?\b/i.test(t);
+}
 
 export async function generateSchedule() {
+	await clearSchedule();
 	await generateSlotsNexus();
-	const people = await getPeople();
-	const slots = await getSlots();
+	const eventTimesMS = await getEventTimes();
+	const eventTimesString = {
+		dayStart: new Date(eventTimesMS.dayStart).toLocaleTimeString('en-US', { hour12: false }),
+		dayEnd: new Date(eventTimesMS.dayEnd).toLocaleTimeString('en-US', { hour12: false })
+	};
+	const lunchTimesMS = await getLunchTimes();
+	const lunchTimesString = {
+		lunchStart: new Date(lunchTimesMS.startTimestamp).toLocaleTimeString('en-US', {
+			hour12: false
+		}),
+		lunchEnd: new Date(lunchTimesMS.endTimestamp).toLocaleTimeString('en-US', { hour12: false })
+	};
+	const people = await getPeopleAtEvent();
+	const slots = [...((await getSlots()) || [])].sort((a, b) => a.slotNumber - b.slotNumber);
 	const ppl = (people || []).filter((p) => p && p.attendingEvent);
-	const nSlots = Math.min(11, (slots || []).length);
+	const nSlots = Math.min(11, slots.length);
+	const row = slots.slice(0, nSlots);
 
 	const drv = ppl.filter((p) => p.rolePool === RolePool.Drive).length;
 	const pl = ppl.filter((p) => p.rolePool === RolePool.PitLead).length;
+	const strat = ppl.filter((p) => p.rolePool === RolePool.ONLY_Strategy).length;
 
 	const subs = ppl.map((p) => ({
 		name: p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.uuid,
@@ -38,10 +72,14 @@ export async function generateSchedule() {
 		wantsStrategy: !!(p.preferences && p.preferences.doStrategy),
 		wantsMedia: !!(p.preferences && p.preferences.doMedia),
 		driveTeam: p.rolePool === RolePool.Drive,
+		onlyStrategy: p.rolePool === RolePool.ONLY_Strategy,
+		tiaraPool: p.rolePool === RolePool.TiaraJudge,
+		slotsAttending: p.slotsAttending ?? [],
 		cannotScout:
 			p.rolePool === RolePool.NO_Scouting ||
 			p.rolePool === RolePool.Drive ||
-			p.rolePool === RolePool.PitLead,
+			p.rolePool === RolePool.PitLead ||
+			p.rolePool === RolePool.ONLY_Strategy,
 		unavailableTimes: '',
 		conventionTalks: '',
 		friday: true,
@@ -74,15 +112,49 @@ export async function generateSchedule() {
 			Journalist: { min: 0, max: 1 },
 			Strategy: { min: 0, max: 3 },
 			Media: { min: 0, max: 1 },
-			'Scouting!': { min: 5, max: 7 }
+			'Scouting!': { min: 5, max: 7 },
+			'Tiara Judge': {
+				min: 0,
+				max: Math.max(0, ppl.filter((p) => p.rolePool === RolePool.TiaraJudge).length)
+			}
 		},
 
 		daySchedule: [
 			{
 				label: 'Today',
-				clock: { start: '08:00', lunchStart: '12:00', lunchEnd: '13:00', end: '18:00' },
-				matchesBeforeLunch: nSlots,
-				matchesAfterLunch: 0
+				clock: {
+					start: eventTimesString.dayStart,
+					lunchStart: lunchTimesString.lunchStart,
+					lunchEnd: lunchTimesString.lunchEnd,
+					end: eventTimesString.dayEnd
+				},
+				...(row.length > 0
+					? {
+							elimBlock: row.map(looksElim),
+							finalsBlock: row.map(looksFinals),
+							tiaraMaxBlocks: 2,
+							// tiaraSlotNumbers: [3,4] if u care which match; otherwise it guesses ~1hr and skips elims when it can
+							blockLabels: row.map((s) => `${s.startLabel}-${s.endLabel}`),
+							blockWindows: row.map((s) => {
+								const a = new Date(s.startTimestamp).toLocaleTimeString('en-US', {
+									hour12: false
+								});
+								const b = new Date(s.endTimestamp).toLocaleTimeString('en-US', {
+									hour12: false
+								});
+								const p0 = a.split(':').map(Number);
+								const p1 = b.split(':').map(Number);
+								return `${String(p0[0] ?? 0).padStart(2, '0')}:${String(p0[1] ?? 0).padStart(2, '0')}-${String(p1[0] ?? 0).padStart(2, '0')}:${String(p1[1] ?? 0).padStart(2, '0')}`;
+							}),
+							slotMinutes: row.map((s) =>
+								Math.max(1, Math.round((s.endTimestamp - s.startTimestamp) / 60000))
+							),
+							slotNumbers: row.map((s) => s.slotNumber)
+						}
+					: {
+							matchesBeforeLunch: Math.max(1, nSlots || 6),
+							matchesAfterLunch: 0
+						})
 			}
 		],
 
@@ -97,7 +169,8 @@ export async function generateSchedule() {
 		4: Role.Scouting,
 		5: Role.Strategy,
 		6: Role.Media,
-		7: Role.Journalism
+		7: Role.Journalism,
+		8: Role.TiaraJudge
 	};
 
 	const out = await makeSchedule(cfg);
@@ -106,7 +179,7 @@ export async function generateSchedule() {
 	(day0 && day0.people ? day0.people : []).forEach((p: { email: any; schedule: number[] }) => {
 		m.set(
 			String(p.email),
-			p.schedule.map((v) => enumConversion[v])
+			p.schedule.map((v) => enumConversion[v] ?? Role.Open)
 		);
 	});
 
@@ -118,61 +191,78 @@ export async function generateSchedule() {
 	}
 }
 
+export async function updateSlotTiming() {
+	await fetchData();
+	const matches = await ourMatches();
+	const slots = await getSlots();
+	for (let slot of slots) {
+		if (!slot.allowUpdate) continue;
+		let startMatch = matches.find((match) => formatMatchLabel(match.label) == slot.startLabel);
+		slot.startTimestamp = startMatch?.times.estimatedStartTime ?? slot.startTimestamp;
+		let endMatch = matches.find((match) => formatMatchLabel(match.label) == slot.endLabel);
+		slot.endTimestamp = endMatch?.times.estimatedStartTime ?? slot.endTimestamp;
+	}
+	console.log(
+		`Updated Nexus slot timing at ${new Date().toLocaleTimeString('en-US', { hour12: false })}`
+	);
+}
+
 export async function generateSlotsNexus() {
+	await fetchData();
 	await clearSlots();
 	const matches = await ourMatches();
-	const date = new Date();
-	date.setDate(27);
-	date.setHours(0, 0, 0, 0);
-	const startOfDay = date.getTime();
-	date.setHours(23, 59, 59, 999);
-	const endOfDay = date.getTime();
-	let lunchTimes = getLunchTimes();
+	if (!matches || matches.length < 1) return await generateSlotsDummy();
+	const lunchTimes = await getLunchTimes();
+	const { dayStart, dayEnd } = await getEventTimes();
+	const matchesToday = matches.filter(
+		(m) => m.times.estimatedStartTime > dayStart && m.times.estimatedQueueTime < dayEnd
+	);
 	let id = 1;
-	for (let i = 0; i < matches.length; i++) {
-		let match = matches[i];
-		let nextMath = matches[i + 1];
-		if (!nextMath || nextMath.times.estimatedStartTime > endOfDay) {
+	let slotData = {
+		slotNumber: id,
+		startTimestamp: dayStart,
+		endTimestamp: matchesToday[0].times.estimatedStartTime,
+		startLabel: 'Start of Day',
+		endLabel: formatMatchLabel(matchesToday[0].label, true),
+		allowUpdate: true
+	};
+	await setSlot(slotData);
+	id++;
+	for (let i = 0; i < matchesToday.length; i++) {
+		let match = matchesToday[i];
+		let nextMath = matchesToday[i + 1];
+		if (i + 1 >= matchesToday.length) {
+			const lastMatch = getLastMatch();
 			let slotData = {
-				id,
+				slotNumber: id,
 				startTimestamp: match.times.estimatedStartTime,
-				endTimestamp: match.times.estimatedStartTime + 5 * 60 * 1000,
+				endTimestamp: lastMatch.times.estimatedStartTime + 5 * 60 * 1000,
 				startLabel: formatMatchLabel(match.label),
-				endLabel: 'End of Day'
+				endLabel: 'End of Day',
+				allowUpdate: true
 			};
 			await setSlot(slotData);
 			break;
 		}
-		if (match.times.estimatedStartTime < startOfDay || match.times.estimatedQueueTime > endOfDay)
-			continue;
 		let slotData = {
-			id,
+			slotNumber: id,
 			startTimestamp: match.times.estimatedStartTime,
 			endTimestamp: nextMath.times.estimatedStartTime,
 			startLabel: formatMatchLabel(match.label),
-			endLabel: formatMatchLabel(nextMath.label, true)
+			endLabel: formatMatchLabel(nextMath.label, true),
+			allowUpdate: true
 		};
 		if (
-			slotData.startTimestamp <= lunchTimes.startTimestamp &&
-			slotData.endTimestamp >= lunchTimes.endTimestamp
+			match.times.estimatedStartTime < lunchTimes.startTimestamp &&
+			nextMath.times.estimatedStartTime > lunchTimes.endTimestamp
 		) {
 			slotData = {
-				id,
+				slotNumber: id,
 				startTimestamp: match.times.estimatedStartTime,
 				endTimestamp: lunchTimes.startTimestamp,
 				startLabel: formatMatchLabel(match.label),
-				endLabel: 'Lunch'
-			};
-			await setSlot(slotData);
-			id++;
-			i++;
-			nextMath = matches[i + 1];
-			slotData = {
-				id,
-				startTimestamp: lunchTimes.endTimestamp,
-				endTimestamp: nextMath.times.estimatedStartTime,
-				startLabel: 'Lunch',
-				endLabel: formatMatchLabel(nextMath.label)
+				endLabel: 'Lunch',
+				allowUpdate: true
 			};
 		}
 		await setSlot(slotData);
@@ -181,17 +271,21 @@ export async function generateSlotsNexus() {
 }
 export async function generateSlotsDummy() {
 	await clearSlots();
-	let matchNum = 0;
-	let startTimestamp = Date.now();
+	const eventTimes = await getEventTimes();
+	let startTimestamp = eventTimes.dayStart;
+	let endTimestamp = startTimestamp + 60 * 60 * 1000;
 	for (let id = 1; id <= 11; id++) {
+		if (startTimestamp > eventTimes.dayEnd) break;
+		else if (endTimestamp > eventTimes.dayEnd) endTimestamp = eventTimes.dayEnd;
 		await setSlot({
-			id,
+			slotNumber: id,
 			startTimestamp,
-			endTimestamp: startTimestamp + 10 * 5 * 60 * 1000,
-			startLabel: matchNum > 0 ? `QM${matchNum}` : `QM${matchNum + 1}`,
-			endLabel: `QM${matchNum + 10}`
+			endTimestamp,
+			startLabel: '',
+			endLabel: '',
+			allowUpdate: false
 		});
-		matchNum += 10;
-		startTimestamp += 10 * 5 * 60 * 1000;
+		startTimestamp = endTimestamp;
+		endTimestamp += 60 * 60 * 1000;
 	}
 }

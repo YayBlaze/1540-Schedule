@@ -1,7 +1,5 @@
-// const fs = require('fs').promises;
-// const https = require('https');
-
-const RL = ['Drive', 'Pits', 'Pit Lead', 'Journalist', 'Strategy', 'Media'];
+const TJG = 'Tiara Judge';
+const RL = ['Drive', 'Pits', 'Pit Lead', 'Journalist', 'Strategy', 'Media', TJG];
 const SCT = 'Scouting!';
 const RL_STAFF = [...RL, SCT];
 
@@ -15,6 +13,7 @@ const BW = {
 	Strategy: 2,
 	Media: 2,
 	Journalist: 2,
+	[TJG]: 2,
 	'Scouting!': 1.5,
 	Open: 0
 };
@@ -27,7 +26,8 @@ const ROLE_ENUM = Object.freeze({
 	Scouting: 4,
 	Strategy: 5,
 	Media: 6,
-	Journalism: 7
+	Journalism: 7,
+	TiaraJudge: 8
 });
 
 const STR_TO_ROLE_ENUM = Object.freeze({
@@ -38,7 +38,8 @@ const STR_TO_ROLE_ENUM = Object.freeze({
 	'Scouting!': ROLE_ENUM.Scouting,
 	Strategy: ROLE_ENUM.Strategy,
 	Media: ROLE_ENUM.Media,
-	Journalist: ROLE_ENUM.Journalism
+	Journalist: ROLE_ENUM.Journalism,
+	[TJG]: ROLE_ENUM.TiaraJudge
 });
 
 function idHit(lst, emLc, disp) {
@@ -74,6 +75,7 @@ function valCfg(CF) {
 		}
 	}
 	if (!CF.roleStaffing) die('roleStaffing required');
+	if (!CF.roleStaffing[TJG]) CF.roleStaffing[TJG] = { min: 0, max: 2 };
 	for (const r of RL_STAFF) {
 		const rs = CF.roleStaffing[r];
 		if (!rs || rs.min == null || rs.max == null) die(`roleStaffing.${r} with min and max required`);
@@ -91,11 +93,31 @@ function valCfg(CF) {
 		if (!c || c.start == null || c.lunchStart == null || c.lunchEnd == null || c.end == null) {
 			die(`daySchedule[${i}].clock needs start, lunchStart, lunchEnd, end`);
 		}
-		if (typeof d.matchesBeforeLunch !== 'number' || typeof d.matchesAfterLunch !== 'number') {
-			die(`daySchedule[${i}].matchesBeforeLunch and matchesAfterLunch (numbers) required`);
-		}
-		if (d.matchesBeforeLunch + d.matchesAfterLunch < 1) {
-			die(`daySchedule[${i}] needs at least one match total`);
+		if (
+			!(
+				Array.isArray(d.blockLabels) &&
+				d.blockLabels.length > 0 &&
+				Array.isArray(d.blockWindows) &&
+				d.blockWindows.length === d.blockLabels.length
+			)
+		) {
+			if (typeof d.matchesBeforeLunch !== 'number' || typeof d.matchesAfterLunch !== 'number') {
+				die(`daySchedule[${i}].matchesBeforeLunch and matchesAfterLunch (numbers) required`);
+			}
+			if (d.matchesBeforeLunch + d.matchesAfterLunch < 1) {
+				die(`daySchedule[${i}] needs at least one match total`);
+			}
+		} else {
+			if (
+				d.slotMinutes != null &&
+				(!Array.isArray(d.slotMinutes) || d.slotMinutes.length !== d.blockLabels.length)
+			)
+				die(`daySchedule[${i}].slotMinutes length must match blockLabels`);
+			if (
+				d.slotNumbers != null &&
+				(!Array.isArray(d.slotNumbers) || d.slotNumbers.length !== d.blockLabels.length)
+			)
+				die(`daySchedule[${i}].slotNumbers length must match blockLabels`);
 		}
 	});
 	if (CF.optimizationIterations == null) die('optimizationIterations required');
@@ -142,22 +164,29 @@ function genMatchBlocksFromDay(dc) {
 }
 
 function dayScoutCtx(dc, blockWindows) {
+	let base;
 	if (dc.scoutLastMatch != null && Number.isFinite(Number(dc.scoutLastMatch))) {
-		return {
+		base = {
 			scoutLastMatch: Number(dc.scoutLastMatch),
 			sctEndMn: Infinity,
 			blockWindows
 		};
+	} else {
+		const sctEndMn = dc.scoutEnd != null ? timeToMins(dc.scoutEnd) : Infinity;
+		base = {
+			scoutLastMatch: null,
+			sctEndMn,
+			blockWindows
+		};
 	}
-	const sctEndMn = dc.scoutEnd != null ? timeToMins(dc.scoutEnd) : Infinity;
-	return {
-		scoutLastMatch: null,
-		sctEndMn,
-		blockWindows
-	};
+	if (Array.isArray(dc.elimBlock) && dc.elimBlock.length === blockWindows.length) {
+		base.elimBlock = dc.elimBlock;
+	}
+	return base;
 }
 
 function scoutSlotOpen(bi, ctx) {
+	if (ctx.elimBlock && ctx.elimBlock[bi]) return false;
 	if (ctx.scoutLastMatch != null && Number.isFinite(ctx.scoutLastMatch)) {
 		return bi + 1 <= ctx.scoutLastMatch;
 	}
@@ -265,6 +294,102 @@ function blkStartMins(blkStr) {
 	return (h || 0) * 60 + (m || 0);
 }
 
+function blkEndMins(blkStr) {
+	const end = (blkStr.split('-').pop() || '').trim();
+	const [h, m] = end.split(':').map(Number);
+	return (h || 0) * 60 + (m || 0);
+}
+
+function slotMinutesFromWindows(windows) {
+	return windows.map((w) => Math.max(1, blkEndMins(w) - blkStartMins(w)));
+}
+
+// ~1hr tiara window, skip elim cols if we know em
+function guessTiaraBlks(mins, elim, nBlk) {
+	if (!nBlk) return [];
+	if (!mins || mins.length !== nBlk) {
+		const mid = Math.floor(nBlk / 2);
+		return mid < nBlk ? [mid] : [0];
+	}
+	let best = [0];
+	let bestDiff = Infinity;
+	for (let i = 0; i < nBlk; i++) {
+		if (elim[i]) continue;
+		const d = Math.abs(Number(mins[i]) - 60);
+		if (d < bestDiff) {
+			bestDiff = d;
+			best = [i];
+		}
+	}
+	for (let i = 0; i < nBlk - 1; i++) {
+		if (elim[i] || elim[i + 1]) continue;
+		const s = Number(mins[i]) + Number(mins[i + 1]);
+		const d = Math.abs(s - 60);
+		if (d < bestDiff) {
+			bestDiff = d;
+			best = [i, i + 1];
+		}
+	}
+	if (bestDiff === Infinity) {
+		const mid = Math.floor(nBlk / 2);
+		return mid < nBlk ? [mid] : [0];
+	}
+	return best;
+}
+
+function tiaraBlksFromCfg(dc, slotNumbers, slotMins, nBlk) {
+	const el =
+		Array.isArray(dc.elimBlock) && dc.elimBlock.length === nBlk ? dc.elimBlock : [];
+	if (
+		Array.isArray(dc.tiaraSlotNumbers) &&
+		dc.tiaraSlotNumbers.length &&
+		slotNumbers &&
+		slotNumbers.length === nBlk
+	) {
+		const ix = [];
+		for (const sn of dc.tiaraSlotNumbers) {
+			const j = slotNumbers.indexOf(sn);
+			if (j >= 0) ix.push(j);
+		}
+		const u = [...new Set(ix)].sort((a, b) => a - b);
+		if (u.length) return u;
+	}
+	if (dc.tiaraBlockIndex != null && Number.isFinite(Number(dc.tiaraBlockIndex))) {
+		const k = Number(dc.tiaraBlockIndex) | 0;
+		if (k >= 0 && k < nBlk) return [k];
+	}
+	return guessTiaraBlks(slotMins, el, nBlk);
+}
+
+// tiara only counts on these cols, everywhere else its 0
+function clampTiaraBlocks(req, nBlk, idxs, poolN) {
+	if (!poolN) {
+		for (let i = 0; i < nBlk; i++) {
+			req[TJG].min[i] = 0;
+			req[TJG].max[i] = 0;
+		}
+		return;
+	}
+	const ok = new Set((idxs || []).filter((i) => i >= 0 && i < nBlk));
+	for (let i = 0; i < nBlk; i++) {
+		if (!ok.has(i)) {
+			req[TJG].min[i] = 0;
+			req[TJG].max[i] = 0;
+		} else {
+			req[TJG].min[i] = poolN;
+			req[TJG].max[i] = poolN;
+		}
+	}
+}
+
+function isPresentAtSlot(sub, blkIdx, slotNumbers) {
+	if (!slotNumbers || !slotNumbers.length) return true;
+	const arr = sub.slotsAttending;
+	if (!arr || !arr.length) return true;
+	const sn = slotNumbers[blkIdx];
+	return arr.includes(sn);
+}
+
 function parseSubs(rows, colMap, opts = {}) {
 	const noScouting = opts.noScouting || [];
 	const driveTeamExtra = opts.driveTeamExtra || [];
@@ -352,9 +477,15 @@ function reqAt(req, role, blkIdx, k) {
 function roleAffinity(sub, role, pitLeadIds, noStrategy) {
 	if (!sub) return -999;
 	const ns = noStrategy || [];
+	if (sub.onlyStrategy) {
+		if (role === 'Strategy') return 80;
+		if (role === 'Open') return 0;
+		return -1000;
+	}
 	if (role === 'Drive') return sub.driveTeam ? 1000 : -1000;
 	if (sub.driveTeam) return -500;
 
+	if (role === TJG) return sub.tiaraPool ? 28 : -1000;
 	if (role === 'Pit Lead') return pitLd(sub, pitLeadIds) ? 120 : sub.wantsPits ? 12 : -5;
 	if (role === 'Pits') return sub.wantsPits ? 30 : -6;
 	if (role === 'Strategy')
@@ -377,14 +508,47 @@ function isUnavailable(sub, blkLabel, blkIdx) {
 	return !!st && t.includes(st);
 }
 
-function isEligible(sub, role, blkIdx, blkLabel, sctCtx, noScouting, pitLeadIds) {
+function pitHeadcount(people, bi) {
+	let n = 0;
+	for (const p of people || []) {
+		const r = (p.schedule || [])[bi] || 'Open';
+		if (r === 'Pits' || r === 'Pit Lead') n++;
+	}
+	return n;
+}
+
+function isEligible(sub, role, blkIdx, blkLabel, schedCtx, people, curPerson) {
 	if (!sub) return false;
+	const { sctCtx, pitLeadIds, noScouting, req, slotNumbers, tiaraMaxBlocks } = schedCtx;
+	if (!isPresentAtSlot(sub, blkIdx, slotNumbers)) return role === 'Open';
+
+	if (sub.onlyStrategy) return role === 'Open' || role === 'Strategy';
+
 	if (isUnavailable(sub, blkLabel, blkIdx)) return false;
 
 	if (role === 'Pit Lead' && !pitLd(sub, pitLeadIds || [])) return false;
 
 	if (role === 'Drive') return !!sub.driveTeam;
 	if (sub.driveTeam && role !== 'Open') return false;
+
+	if (role === TJG) {
+		if (!sub.tiaraPool) return false;
+		if (req && reqAt(req, TJG, blkIdx, 'max') <= 0) return false;
+		if (
+			tiaraMaxBlocks > 0 &&
+			curPerson &&
+			curPerson.schedule &&
+			curPerson.email === sub.email
+		) {
+			const sch = curPerson.schedule;
+			let tj = 0;
+			for (let i = 0; i < sch.length; i++) {
+				if (i === blkIdx) continue;
+				if (sch[i] === TJG) tj++;
+			}
+			if (tj >= tiaraMaxBlocks) return false;
+		}
+	}
 
 	if (role === SCT) {
 		if (sub.cannotScout || idHit(noScouting || [], sub.email, sub.name)) return false;
@@ -404,6 +568,32 @@ function calcBurden(p) {
 	return (p.schedule || []).reduce((sum, r) => sum + (BW[r] ?? 0), 0);
 }
 
+function calcBurdenEquiv(p, slotMins) {
+	const sch = p.schedule || [];
+	if (!slotMins || !sch.length) return calcBurden(p);
+	let sum = 0;
+	let totW = 0;
+	for (let i = 0; i < sch.length; i++) {
+		const w = Number(slotMins[i]) || 1;
+		sum += (BW[sch[i]] ?? 0) * w;
+		totW += w;
+	}
+	const avgW = totW / sch.length;
+	return avgW ? sum / avgW : sum;
+}
+
+function maxConsecutiveRun(sch, role) {
+	let run = 0;
+	let best = 0;
+	for (const r of sch || []) {
+		if (r === role) {
+			run++;
+			if (run > best) best = run;
+		} else run = 0;
+	}
+	return best;
+}
+
 function clonePeople(people) {
 	return people.map((p) => ({ ...p, schedule: [...(p.schedule || [])] }));
 }
@@ -416,7 +606,7 @@ function countRole(people, blkIdx, role) {
 
 function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 	const sMap = buildSubMap(subs);
-	const { sctCtx, pitLeadIds, noStrategy, noScouting } = schedCtx;
+	const { sctCtx, pitLeadIds, noStrategy, noScouting, slotMins } = schedCtx;
 	const nBlk = blocks.length;
 	const people = subs.map((s) => ({
 		name: shortName(s.name),
@@ -429,7 +619,7 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 		let cands = people.filter((p) => {
 			if ((p.schedule || [])[blkIdx] !== 'Open') return false;
 			const sub = sMap.get(p.email);
-			if (!isEligible(sub, role, blkIdx, blk, sctCtx, noScouting, pitLeadIds)) return false;
+			if (!isEligible(sub, role, blkIdx, blk, schedCtx, people, p)) return false;
 			if (onlyPreferred && roleAffinity(sub, role, pitLeadIds, noStrategy) <= 0) return false;
 			return true;
 		});
@@ -437,11 +627,11 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 		cands = cands.sort((a, b) => {
 			const sa =
 				roleAffinity(sMap.get(a.email), role, pitLeadIds, noStrategy) -
-				calcBurden(a) * 0.2 +
+				(slotMins ? calcBurdenEquiv(a, slotMins) : calcBurden(a)) * 0.2 +
 				Math.random() * 0.01;
 			const sb =
 				roleAffinity(sMap.get(b.email), role, pitLeadIds, noStrategy) -
-				calcBurden(b) * 0.2 +
+				(slotMins ? calcBurdenEquiv(b, slotMins) : calcBurden(b)) * 0.2 +
 				Math.random() * 0.01;
 			return sb - sa;
 		});
@@ -467,7 +657,7 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 		);
 		assign(bi, 'Drive', driveTarget, true);
 
-		const orderedHard = ['Pit Lead', 'Pits', 'Strategy', 'Media', 'Journalist'];
+		const orderedHard = ['Pit Lead', 'Pits', 'Strategy', 'Media', 'Journalist', TJG];
 		for (const role of orderedHard) {
 			const mn = reqAt(req, role, bi, 'min');
 			const mx = reqAt(req, role, bi, 'max');
@@ -484,12 +674,23 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 				const sub = sMap.get(p.email);
 				return (
 					p.schedule[bi] === 'Open' &&
-					isEligible(sub, SCT, bi, blocks[bi], sctCtx, noScouting, pitLeadIds)
+					isEligible(sub, SCT, bi, blocks[bi], schedCtx, people, p)
 				);
 			}).length;
 			const scoutTarget = Math.max(scoutMn, Math.min(scoutMx, eligOpen));
 			assign(bi, SCT, scoutTarget, false);
 		} else if (scoutMn > 0) {
+		}
+
+		if (schedCtx.finalsBlock && schedCtx.finalsBlock[bi]) {
+			while (pitHeadcount(people, bi) > 3) {
+				const victim = people.find((pp) => {
+					const r = (pp.schedule || [])[bi] || 'Open';
+					return r === 'Pits' || r === 'Pit Lead';
+				});
+				if (!victim) break;
+				victim.schedule[bi] = 'Open';
+			}
 		}
 	}
 
@@ -498,7 +699,7 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 
 function scoreDay(people, subs, blocks, req, schedCtx) {
 	const sMap = buildSubMap(subs);
-	const { sctCtx, pitLeadIds, noStrategy, noScouting } = schedCtx;
+	const { sctCtx, pitLeadIds, noStrategy, slotMins } = schedCtx;
 	let score = 0;
 	let hardViol = 0;
 
@@ -510,9 +711,15 @@ function scoreDay(people, subs, blocks, req, schedCtx) {
 			roleCounts[r] = (roleCounts[r] || 0) + 1;
 			const sub = sMap.get(p.email);
 
-			if (!isEligible(sub, r, bi, blocks[bi], sctCtx, noScouting, pitLeadIds)) hardViol++;
+			if (!isEligible(sub, r, bi, blocks[bi], schedCtx, people, p)) hardViol++;
 			if (sub && sub.driveTeam && r !== 'Drive' && r !== 'Open') hardViol++;
+			if (sub && sub.onlyStrategy && r !== 'Open' && r !== 'Strategy') hardViol++;
 			if (r === SCT && !scoutSlotOpen(bi, sctCtx)) hardViol++;
+		}
+
+		if (schedCtx.finalsBlock && schedCtx.finalsBlock[bi]) {
+			const pc = pitHeadcount(people, bi);
+			if (pc > 3) hardViol += pc - 3;
 		}
 
 		for (const role of RL_STAFF) {
@@ -522,23 +729,36 @@ function scoreDay(people, subs, blocks, req, schedCtx) {
 			if (got < mn) hardViol += mn - got;
 			if (got > mx) hardViol += got - mx;
 		}
+
+		if (schedCtx.tiaraBlks && schedCtx.tiaraBlks.includes(bi)) {
+			const g = roleCounts[TJG] || 0;
+			score += g * (g + 1) * 2;
+		}
 	}
 
 	if (hardViol > 0) return -hardViol * HP;
 
-	const burdens = people.map(calcBurden);
+	const burdens = people.map((p) =>
+		slotMins ? calcBurdenEquiv(p, slotMins) : calcBurden(p)
+	);
 	const avgB = burdens.length ? burdens.reduce((a, b) => a + b, 0) / burdens.length : 0;
 
 	for (const p of people) {
 		const sub = sMap.get(p.email);
 		const sch = p.schedule || [];
-		const b = calcBurden(p);
+		const b = slotMins ? calcBurdenEquiv(p, slotMins) : calcBurden(p);
 		const scoutCnt = sch.filter((r) => r === SCT).length;
 		const pitCnt = sch.filter((r) => r === 'Pits' || r === 'Pit Lead').length;
+		const runSct = maxConsecutiveRun(sch, SCT);
+		const runTj = maxConsecutiveRun(sch, TJG);
+		const tjCnt = sch.filter((r) => r === TJG).length;
 
 		score -= Math.abs(b - avgB) * 28;
 		score -= scoutCnt * scoutCnt * 1.5;
 		score -= pitCnt * pitCnt * 1.2;
+		score -= runSct * runSct * 6;
+		score -= runTj * runTj * 4;
+		score -= tjCnt * tjCnt * 1.1;
 
 		for (const r of sch) {
 			const aff = roleAffinity(sub, r, pitLeadIds, noStrategy);
@@ -554,7 +774,6 @@ function mutateDaySchedule(people, subs, blocks, schedCtx) {
 	if (!people.length || !blocks.length) return null;
 
 	const sMap = buildSubMap(subs);
-	const { sctCtx, noScouting } = schedCtx;
 	const next = clonePeople(people);
 	const bi = Math.floor(Math.random() * blocks.length);
 	const blk = blocks[bi];
@@ -568,13 +787,29 @@ function mutateDaySchedule(people, subs, blocks, schedCtx) {
 	const ra = (a.schedule || [])[bi] || 'Open';
 	const rb = (b.schedule || [])[bi] || 'Open';
 
-	if (!isEligible(sMap.get(a.email), rb, bi, blk, sctCtx, noScouting, schedCtx.pitLeadIds))
-		return null;
-	if (!isEligible(sMap.get(b.email), ra, bi, blk, sctCtx, noScouting, schedCtx.pitLeadIds))
-		return null;
+	if (!isEligible(sMap.get(a.email), rb, bi, blk, schedCtx, next, a)) return null;
+	if (!isEligible(sMap.get(b.email), ra, bi, blk, schedCtx, next, b)) return null;
 
 	a.schedule[bi] = rb;
 	b.schedule[bi] = ra;
+	return next;
+}
+
+function mutateDayScheduleCrossSlot(people, subs, blocks, schedCtx) {
+	if (!people.length || blocks.length < 2) return null;
+	const sMap = buildSubMap(subs);
+	const next = clonePeople(people);
+	const bi = Math.floor(Math.random() * blocks.length);
+	let bj = Math.floor(Math.random() * blocks.length);
+	if (bj === bi) bj = (bi + 1) % blocks.length;
+	const pi = Math.floor(Math.random() * next.length);
+	const p = next[pi];
+	const ra = (p.schedule || [])[bi] || 'Open';
+	const rb = (p.schedule || [])[bj] || 'Open';
+	if (!isEligible(sMap.get(p.email), ra, bj, blocks[bj], schedCtx, next, p)) return null;
+	if (!isEligible(sMap.get(p.email), rb, bi, blocks[bi], schedCtx, next, p)) return null;
+	p.schedule[bi] = rb;
+	p.schedule[bj] = ra;
 	return next;
 }
 
@@ -588,7 +823,10 @@ function optimizeDaySchedule(initialPeople, subs, blocks, req, schedCtx, iterCou
 	const nIter = Math.max(100, iterCount || 200);
 
 	for (let i = 0; i < nIter; i++) {
-		const cand = mutateDaySchedule(cur, subs, blocks, schedCtx);
+		const cand =
+			Math.random() < 0.35
+				? mutateDayScheduleCrossSlot(cur, subs, blocks, schedCtx)
+				: mutateDaySchedule(cur, subs, blocks, schedCtx);
 		if (!cand) continue;
 
 		const candScore = scoreDay(cand, subs, blocks, req, schedCtx);
@@ -629,12 +867,8 @@ async function bldSch(CF) {
 
 	let subs = [];
 	if (Array.isArray(CF.subs) && CF.subs.length > 0) {
-		// console.log('using cf subs');
-		// console.log('cf subs', CF.subs);
 		subs = CF.subs.slice();
-		// console.log('new subs', subs);
 	} else {
-		// console.log('making own subs');
 		try {
 			const csv = await fs.readFile(csvPath, 'utf8');
 			subs = parseSubs(parseCSV(csv), columnMap, {
@@ -660,18 +894,59 @@ async function bldSch(CF) {
 		// console.log(baseSubs);
 
 		const dc = daySchedule[di];
-		const { labels: matchLabels, windows: matchWindows } = genMatchBlocksFromDay(dc);
-		let blocks = matchLabels;
-		let blockWindows = matchWindows;
+		let blocks;
+		let blockWindows;
+		if (
+			Array.isArray(dc.blockLabels) &&
+			dc.blockLabels.length > 0 &&
+			Array.isArray(dc.blockWindows) &&
+			dc.blockWindows.length === dc.blockLabels.length
+		) {
+			blocks = dc.blockLabels.slice();
+			blockWindows = dc.blockWindows.slice();
+		} else {
+			const gen = genMatchBlocksFromDay(dc);
+			blocks = gen.labels;
+			blockWindows = gen.windows;
+		}
 
 		const req = ldReq(CF, blocks.length);
+
+		let slotMins = dc.slotMinutes;
+		if (!slotMins || slotMins.length !== blocks.length) {
+			slotMins = slotMinutesFromWindows(blockWindows);
+		}
+		let slotNumbers = dc.slotNumbers;
+		if (!slotNumbers || slotNumbers.length !== blocks.length) {
+			slotNumbers = blocks.map((_, i) => i + 1);
+		}
+
+		const tjPool = (baseSubs || []).filter((s) => s.tiaraPool).length;
+		const tiaraBlks = tiaraBlksFromCfg(dc, slotNumbers, slotMins, blocks.length);
+		clampTiaraBlocks(req, blocks.length, tiaraBlks, tjPool);
+
 		const sctCtx = dayScoutCtx(dc, blockWindows);
+
+		const finalsBlock =
+			Array.isArray(dc.finalsBlock) && dc.finalsBlock.length === blocks.length
+				? dc.finalsBlock
+				: blocks.map(() => false);
+		const tiaraMaxBlocks =
+			dc.tiaraMaxBlocks != null && Number(dc.tiaraMaxBlocks) >= 0
+				? Number(dc.tiaraMaxBlocks)
+				: 2;
 
 		const sx = {
 			sctCtx,
 			pitLeadIds: plIds,
 			noStrategy: noStrat,
-			noScouting: noSct
+			noScouting: noSct,
+			req,
+			slotNumbers,
+			slotMins,
+			finalsBlock,
+			tiaraMaxBlocks,
+			tiaraBlks
 		};
 		// console.log(sx);
 
@@ -752,7 +1027,35 @@ function daysWithRoleEnums(days) {
 	});
 }
 
-/** { days, scheduleMode, builtAt } — persist outside this module if you want a db */
+function defaultLightSchedule(nBlk) {
+	const light = [SCT, 'Open', 'Media', 'Strategy', 'Journalism'];
+	const out = [];
+	for (let i = 0; i < nBlk; i++) {
+		out.push(light[i % light.length]);
+	}
+	return out;
+}
+
+function addPersonToDaySchedule(existingPeople, daySubs, newSub) {
+	const nBlk = (existingPeople[0]?.schedule || []).length || 0;
+	const sch = nBlk ? defaultLightSchedule(nBlk) : [];
+	return {
+		people: [
+			...existingPeople,
+			{ name: shortName(newSub.name), email: newSub.email, schedule: sch }
+		],
+		subs: [...daySubs, newSub]
+	};
+}
+
+function removePersonFromDaySchedule(existingPeople, daySubs, email) {
+	const e = String(email).toLowerCase();
+	return {
+		people: existingPeople.filter((p) => (p.email || '').toLowerCase() !== e),
+		subs: daySubs.filter((s) => (s.email || '').toLowerCase() !== e)
+	};
+}
+
 async function makeSchedule(CF) {
 	const out = await bldSch(CF);
 	const builtAt = new Date().toISOString();
@@ -767,4 +1070,11 @@ async function makeSchedule(CF) {
 	return { ...out, builtAt };
 }
 
-module.exports = { makeSchedule, ROLE_ENUM, STR_TO_ROLE_ENUM };
+export {
+	makeSchedule,
+	ROLE_ENUM,
+	STR_TO_ROLE_ENUM,
+	addPersonToDaySchedule,
+	removePersonFromDaySchedule,
+	defaultLightSchedule
+};

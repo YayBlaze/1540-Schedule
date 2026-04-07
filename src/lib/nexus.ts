@@ -1,6 +1,7 @@
 import { nexusKey } from '$env/static/private';
 import { eventKey, team } from '$lib/config';
-import type { nexusData, nexusMatch } from './types';
+import { getMilestones } from '$lib/db';
+import type { nexusData, nexusMatch } from '$lib/types';
 
 var data: nexusData;
 
@@ -17,11 +18,41 @@ export async function fetchData() {
 		console.log('Error getting live event status:', errorMessage);
 		return false;
 	}
-
 	data = await response.json();
+	console.log(
+		`Pulled new Nexus data at ${new Date(data.dataAsOfTime).toLocaleTimeString('en-US', { hour12: false })}`
+	);
 }
 
-export function getLunchTimes() {
+export async function getEventTimes() {
+	const milestoneTimes = await getMilestones();
+	const dbEventTimes = milestoneTimes.find((v) => v.name == 'event');
+	let dayStart;
+	let source = 'db';
+	let dayEnd;
+	if (dbEventTimes) {
+		dayStart = dbEventTimes.startTimestamp;
+		dayEnd = dbEventTimes.endTimestamp;
+	} else {
+		source = 'gen';
+		const date = new Date();
+		date.setHours(8, 0, 0, 0);
+		dayStart = firstMatch()?.times.estimatedStartTime ?? date.getTime();
+		date.setHours(18, 0, 0, 0);
+		dayEnd = (lastMatch()?.times.estimatedStartTime ?? date.getTime()) + 5 * 60 * 1000;
+	}
+	return { dayStart, dayEnd, fromDB: source == 'db' };
+}
+
+export async function getLunchTimes() {
+	const dbMilestones = await getMilestones();
+	const dbLunch = dbMilestones.find((v) => v.name == 'lunch');
+	if (dbLunch)
+		return {
+			startTimestamp: dbLunch.startTimestamp,
+			endTimestamp: dbLunch.endTimestamp,
+			fromDB: true
+		};
 	let matchBefore = null;
 	let matchAfter = null;
 	for (let match of data.matches) {
@@ -37,11 +68,12 @@ export function getLunchTimes() {
 		const startTimestamp = date.getTime();
 		date.setHours(12, 0, 0, 0);
 		const endTimestamp = date.getTime();
-		return { startTimestamp, endTimestamp };
+		return { startTimestamp, endTimestamp, fromDB: false };
 	}
 	return {
 		startTimestamp: matchBefore.times.estimatedStartTime + 3 * 60 * 1000,
-		endTimestamp: matchAfter.times.estimatedStartTime
+		endTimestamp: matchAfter.times.estimatedStartTime,
+		fromDB: false
 	};
 }
 
@@ -76,12 +108,43 @@ export async function ourMatches() {
 	);
 }
 
+export function lastMatch() {
+	const date = new Date();
+	date.setHours(0, 0, 0, 0);
+	const startOfDay = date.getTime();
+	date.setHours(23, 59, 59, 999);
+	const endOfDay = date.getTime();
+	let matches = data.matches;
+	matches = matches.filter(
+		(v) => v.times.estimatedStartTime < endOfDay && v.times.estimatedStartTime > startOfDay
+	);
+	return matches[matches.length - 1];
+}
+
+export function firstMatch() {
+	const date = new Date();
+	date.setHours(0, 0, 0, 0);
+	const startOfDay = date.getTime();
+	date.setHours(23, 59, 59, 999);
+	const endOfDay = date.getTime();
+	let matches = data.matches;
+	matches = matches.filter(
+		(v) => v.times.estimatedStartTime < endOfDay && v.times.estimatedStartTime > startOfDay
+	);
+	return matches[0];
+}
+
 export function formatMatchLabel(label: string, negativeOffset: boolean = false) {
 	let number = parseInt(label.split(' ')[1]);
-	if (negativeOffset) number -= 1;
-	return label.includes('Qualification')
-		? `QM${number}`
-		: label.includes('Practice')
-			? `PM${number}`
-			: label;
+	if (negativeOffset) number -= number > 1 ? 1 : 0;
+
+	const prefixes: [string, string][] = [
+		['Qualification', 'QM'],
+		['Practice', 'PM'],
+		['Playoff', 'SFM'],
+		['Final', 'FM']
+	];
+
+	const match = prefixes.find(([key]) => label.includes(key));
+	return match ? `${match[1]}${number}` : label;
 }

@@ -1,5 +1,5 @@
 export type Preferences = {
-	doPits: 0 | 1 | 2 | 3 | 4 | 5; // 0 = doesn't want pits, 5 = wants as much pits as possible, -1 = pit lead
+	doPits: 0 | 1 | 2 | 3 | 4 | 5; // 0 = doesn't want pits, 5 = wants as much pits as possible
 	doMedia: boolean;
 	doStrategy: boolean;
 	doJournalism: boolean;
@@ -10,7 +10,10 @@ export type PersonData = {
 	firstName: string;
 	lastName: string;
 	displayName: string;
+	email: string;
 	attendingEvent: boolean;
+	attendingLoadIn: boolean;
+	slotsAttending: number[]; // the numbers of the slots they are attending; to be used if someone is arriving late or leaving early
 	rolePool: RolePool;
 	preferences: Preferences;
 };
@@ -38,14 +41,17 @@ export enum Role {
 	Scouting = 'Scouting',
 	Strategy = 'Strategy',
 	Media = 'Media',
-	Journalism = 'Journalism'
+	Journalism = 'Journalism',
+	TiaraJudge = 'Tiara Judge'
 }
 
 export enum RolePool {
 	None = 'None',
 	PitLead = 'Pit Lead',
 	Drive = 'Drive',
-	NO_Scouting = 'No Scouting'
+	NO_Scouting = 'No Scouting',
+	ONLY_Strategy = 'Strategy Only',
+	TiaraJudge = 'Tiara Judge'
 }
 
 export type nexusData = {
