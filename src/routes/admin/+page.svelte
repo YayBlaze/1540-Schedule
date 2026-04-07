@@ -2,12 +2,14 @@
 	import { goto } from '$app/navigation';
 	import type { PageProps } from './$types';
 	import { RolePool } from '$lib/types';
+	import { team } from '$lib/config';
 	let { data }: PageProps = $props();
 
 	var people = $derived(data.people);
 	var times = $derived(data.times);
 	var date = $derived(data.date);
 	var slots = $derived(data.slots);
+	var fromDB = $derived(data.fromDB);
 	// svelte-ignore state_referenced_locally
 	var slotsToEdit = $state(slots);
 	while (slotsToEdit.length < 11) {
@@ -39,7 +41,7 @@
 </script>
 
 <nav class="flex h-fit w-full items-center justify-between bg-(--white) p-2 pr-5 pl-5">
-	<h1 class="text-4xl text-(--black)">1540 Admin</h1>
+	<h1 class="text-4xl text-(--black)">{team} Admin</h1>
 	<button
 		onclick={() => goto('/')}
 		class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
@@ -218,6 +220,7 @@
 				name="dayStart"
 				placeholder="Event Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				style="color: var({fromDB.event ? '--yellow' : '--white'});"
 				bind:value={dayStart}
 			/>
 			<input
@@ -225,6 +228,7 @@
 				name="lunchStart"
 				placeholder="Lunch Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				style="color: var({fromDB.lunch ? '--yellow' : '--white'});"
 				bind:value={lunchStart}
 			/>
 			<input
@@ -232,6 +236,7 @@
 				name="lunchEnd"
 				placeholder="Lunch End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				style="color: var({fromDB.lunch ? '--yellow' : '--white'});"
 				bind:value={lunchEnd}
 			/>
 			<input
@@ -239,6 +244,7 @@
 				name="dayEnd"
 				placeholder="Event End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				style="color: var({fromDB.event ? '--yellow' : '--white'});"
 				bind:value={dayEnd}
 			/>
 			<button

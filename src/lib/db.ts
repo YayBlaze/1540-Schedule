@@ -374,5 +374,12 @@ export async function msToSlot(ms: number) {
 		}
 	}
 	if (!slot) return null;
-	return { num: slot.slotNumber, label: `${slot.startLabel}-${slot.endLabel}` };
+	const msToTime = (ms: number) => {
+		return new Date(ms).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' });
+	};
+	let label =
+		slot.startLabel != ''
+			? `${slot.startLabel}-${slot.endLabel}`
+			: `${msToTime(slot.startTimestamp)}-${msToTime(slot.endTimestamp)}`;
+	return { num: slot.slotNumber, label };
 }

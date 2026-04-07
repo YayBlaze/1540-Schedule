@@ -22,7 +22,7 @@ export const load: PageServerLoad = async () => {
 	const people = await getPeople();
 	let slots = await getSlots();
 	const lunch = await getLunchTimes();
-	const { dayStart, dayEnd } = await getEventTimes();
+	const { dayStart, dayEnd, fromDB } = await getEventTimes();
 	let times;
 	if (lunch) {
 		times = {
@@ -34,7 +34,13 @@ export const load: PageServerLoad = async () => {
 	} else {
 		times = {};
 	}
-	return { people, times, date: new Date(dayStart).toLocaleDateString('en-US'), slots };
+	return {
+		people,
+		times,
+		fromDB: { event: fromDB, lunch: lunch.fromDB },
+		date: new Date(dayStart).toLocaleDateString('en-US'),
+		slots
+	};
 };
 
 export const actions = {

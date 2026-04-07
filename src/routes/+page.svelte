@@ -3,6 +3,7 @@
 	import { Role } from '$lib/types';
 	import { onDestroy, onMount } from 'svelte';
 	import type { PageProps } from './$types';
+	import { team } from '$lib/config';
 
 	let { data }: PageProps = $props();
 
@@ -94,7 +95,7 @@
 
 <nav class="mb-5 flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<div class="flex items-center justify-start gap-1">
-		<h1 class="pr-5 text-4xl text-(--black)">1540 Schedule</h1>
+		<h1 class="pr-5 text-4xl text-(--black)">{team} Schedule</h1>
 		{#if view == 'time'}
 			<button
 				class="rounded-md border border-(--white) bg-(--black) p-2 text-(--white)"
@@ -140,7 +141,11 @@
 	{#if nextSlot}
 		<div class="flex flex-col items-center justify-center gap-2 border-l-2 border-(--white) pl-2">
 			<p>
-				Next Slot: {nextSlot.startLabel}-{nextSlot.endLabel} in {timeToNextSlot}
+				Next Slot: {nextSlot.startLabel != ''
+					? nextSlot.startLabel
+					: msToTime(nextSlot.slotNumber)}-{nextSlot.endLabel != ''
+					? nextSlot.endLabel
+					: msToTime(nextSlot.endTimestamp)} in {timeToNextSlot}
 			</p>
 			{#if nextRole}
 				<p style="color: var({nextRole != Role.Open ? getColor(nextRole) : 'white'}">
@@ -167,7 +172,8 @@
 							slot.endTimestamp > Date.now()
 								? '--yellow'
 								: '--white'})"
-							><p>{slot.startLabel}-{slot.endLabel}</p>
+						>
+							{#if slot.startLabel != ''}<p>{slot.startLabel}-{slot.endLabel}</p>{/if}
 							<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p></th
 						>
 					{/each}
@@ -214,7 +220,7 @@
 						? '--yellow'
 						: '--white'})"
 				>
-					<p>{slot.startLabel}-{slot.endLabel}</p>
+					{#if slot.startLabel != ''}<p>{slot.startLabel}-{slot.endLabel}</p>{/if}
 					<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p>
 				</div>
 				<div class="flex flex-wrap items-center gap-3">

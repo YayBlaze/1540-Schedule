@@ -59,6 +59,7 @@ export async function generateSchedule() {
 
 	const drv = ppl.filter((p) => p.rolePool === RolePool.Drive).length;
 	const pl = ppl.filter((p) => p.rolePool === RolePool.PitLead).length;
+	const strat = ppl.filter((p) => p.rolePool === RolePool.ONLY_Strategy).length;
 
 	const subs = ppl.map((p) => ({
 		name: p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.uuid,
@@ -270,18 +271,21 @@ export async function generateSlotsNexus() {
 }
 export async function generateSlotsDummy() {
 	await clearSlots();
-	let matchNum = 0;
-	let startTimestamp = Date.now();
+	const eventTimes = await getEventTimes();
+	let startTimestamp = eventTimes.dayStart;
+	let endTimestamp = startTimestamp + 60 * 60 * 1000;
 	for (let id = 1; id <= 11; id++) {
+		if (startTimestamp > eventTimes.dayEnd) break;
+		else if (endTimestamp > eventTimes.dayEnd) endTimestamp = eventTimes.dayEnd;
 		await setSlot({
 			slotNumber: id,
 			startTimestamp,
-			endTimestamp: startTimestamp + 10 * 5 * 60 * 1000,
-			startLabel: matchNum > 0 ? `QM${matchNum}` : `QM${matchNum + 1}`,
-			endLabel: `QM${matchNum + 10}`,
+			endTimestamp,
+			startLabel: '',
+			endLabel: '',
 			allowUpdate: false
 		});
-		matchNum += 10;
-		startTimestamp += 10 * 5 * 60 * 1000;
+		startTimestamp = endTimestamp;
+		endTimestamp += 60 * 60 * 1000;
 	}
 }

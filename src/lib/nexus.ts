@@ -28,22 +28,31 @@ export async function getEventTimes() {
 	const milestoneTimes = await getMilestones();
 	const dbEventTimes = milestoneTimes.find((v) => v.name == 'event');
 	let dayStart;
+	let source = 'db';
 	let dayEnd;
 	if (dbEventTimes) {
 		dayStart = dbEventTimes.startTimestamp;
 		dayEnd = dbEventTimes.endTimestamp;
 	} else {
-		dayStart = firstMatch().times.estimatedStartTime;
-		dayEnd = lastMatch().times.estimatedStartTime + 5 * 60 * 1000;
+		source = 'gen';
+		const date = new Date();
+		date.setHours(8, 0, 0, 0);
+		dayStart = firstMatch()?.times.estimatedStartTime ?? date.getTime();
+		date.setHours(18, 0, 0, 0);
+		dayEnd = (lastMatch()?.times.estimatedStartTime ?? date.getTime()) + 5 * 60 * 1000;
 	}
-	return { dayStart, dayEnd };
+	return { dayStart, dayEnd, fromDB: source == 'db' };
 }
 
 export async function getLunchTimes() {
 	const dbMilestones = await getMilestones();
 	const dbLunch = dbMilestones.find((v) => v.name == 'lunch');
 	if (dbLunch)
-		return { startTimestamp: dbLunch.startTimestamp, endTimestamp: dbLunch.endTimestamp };
+		return {
+			startTimestamp: dbLunch.startTimestamp,
+			endTimestamp: dbLunch.endTimestamp,
+			fromDB: true
+		};
 	let matchBefore = null;
 	let matchAfter = null;
 	for (let match of data.matches) {
@@ -59,11 +68,12 @@ export async function getLunchTimes() {
 		const startTimestamp = date.getTime();
 		date.setHours(12, 0, 0, 0);
 		const endTimestamp = date.getTime();
-		return { startTimestamp, endTimestamp };
+		return { startTimestamp, endTimestamp, fromDB: false };
 	}
 	return {
 		startTimestamp: matchBefore.times.estimatedStartTime + 3 * 60 * 1000,
-		endTimestamp: matchAfter.times.estimatedStartTime
+		endTimestamp: matchAfter.times.estimatedStartTime,
+		fromDB: false
 	};
 }
 
