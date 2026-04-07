@@ -279,7 +279,7 @@ export async function generateSlotsDummy() {
 			endTimestamp: startTimestamp + 10 * 5 * 60 * 1000,
 			startLabel: matchNum > 0 ? `QM${matchNum}` : `QM${matchNum + 1}`,
 			endLabel: `QM${matchNum + 10}`,
-			allowUpdate: true
+			allowUpdate: false
 		});
 		matchNum += 10;
 		startTimestamp += 10 * 5 * 60 * 1000;

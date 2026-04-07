@@ -335,22 +335,6 @@
 		color: var(--white);
 	}
 
-	.button-secondary {
-		height: fit-content;
-		border-radius: 10px;
-		background-color: #3c3c3c;
-		padding: 0.5rem;
-		color: var(--white);
-		font-size: 0.875rem;
-		transition-property: color, background-color;
-		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-		transition-duration: 200ms;
-	}
-	.button-secondary:hover {
-		background-color: var(--white);
-		color: var(--black2);
-	}
-
 	.button-destructive {
 		height: fit-content;
 		border: 1px solid #3c3c3c;
