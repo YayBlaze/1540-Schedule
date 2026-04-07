@@ -164,22 +164,29 @@ function genMatchBlocksFromDay(dc) {
 }
 
 function dayScoutCtx(dc, blockWindows) {
+	let base;
 	if (dc.scoutLastMatch != null && Number.isFinite(Number(dc.scoutLastMatch))) {
-		return {
+		base = {
 			scoutLastMatch: Number(dc.scoutLastMatch),
 			sctEndMn: Infinity,
 			blockWindows
 		};
+	} else {
+		const sctEndMn = dc.scoutEnd != null ? timeToMins(dc.scoutEnd) : Infinity;
+		base = {
+			scoutLastMatch: null,
+			sctEndMn,
+			blockWindows
+		};
 	}
-	const sctEndMn = dc.scoutEnd != null ? timeToMins(dc.scoutEnd) : Infinity;
-	return {
-		scoutLastMatch: null,
-		sctEndMn,
-		blockWindows
-	};
+	if (Array.isArray(dc.elimBlock) && dc.elimBlock.length === blockWindows.length) {
+		base.elimBlock = dc.elimBlock;
+	}
+	return base;
 }
 
 function scoutSlotOpen(bi, ctx) {
+	if (ctx.elimBlock && ctx.elimBlock[bi]) return false;
 	if (ctx.scoutLastMatch != null && Number.isFinite(ctx.scoutLastMatch)) {
 		return bi + 1 <= ctx.scoutLastMatch;
 	}
@@ -293,30 +300,84 @@ function blkEndMins(blkStr) {
 	return (h || 0) * 60 + (m || 0);
 }
 
-function blockOverlapsClockWindow(blkStr, t0, t1) {
-	const a = blkStartMins(blkStr);
-	const b = blkEndMins(blkStr);
-	return a < t1 && b > t0;
-}
-
 function slotMinutesFromWindows(windows) {
 	return windows.map((w) => Math.max(1, blkEndMins(w) - blkStartMins(w)));
 }
 
-function patchReqTiara(req, blockWindows, tiaraStart, tiaraEnd) {
+// ~1hr tiara window, skip elim cols if we know em
+function guessTiaraBlks(mins, elim, nBlk) {
+	if (!nBlk) return [];
+	if (!mins || mins.length !== nBlk) {
+		const mid = Math.floor(nBlk / 2);
+		return mid < nBlk ? [mid] : [0];
+	}
+	let best = [0];
+	let bestDiff = Infinity;
+	for (let i = 0; i < nBlk; i++) {
+		if (elim[i]) continue;
+		const d = Math.abs(Number(mins[i]) - 60);
+		if (d < bestDiff) {
+			bestDiff = d;
+			best = [i];
+		}
+	}
+	for (let i = 0; i < nBlk - 1; i++) {
+		if (elim[i] || elim[i + 1]) continue;
+		const s = Number(mins[i]) + Number(mins[i + 1]);
+		const d = Math.abs(s - 60);
+		if (d < bestDiff) {
+			bestDiff = d;
+			best = [i, i + 1];
+		}
+	}
+	if (bestDiff === Infinity) {
+		const mid = Math.floor(nBlk / 2);
+		return mid < nBlk ? [mid] : [0];
+	}
+	return best;
+}
+
+function tiaraBlksFromCfg(dc, slotNumbers, slotMins, nBlk) {
+	const el =
+		Array.isArray(dc.elimBlock) && dc.elimBlock.length === nBlk ? dc.elimBlock : [];
 	if (
-		tiaraStart == null ||
-		tiaraEnd == null ||
-		String(tiaraStart).trim() === '' ||
-		String(tiaraEnd).trim() === ''
-	)
-		return;
-	const T0 = timeToMins(tiaraStart);
-	const T1 = timeToMins(tiaraEnd);
-	for (let i = 0; i < blockWindows.length; i++) {
-		if (!blockOverlapsClockWindow(blockWindows[i], T0, T1)) {
+		Array.isArray(dc.tiaraSlotNumbers) &&
+		dc.tiaraSlotNumbers.length &&
+		slotNumbers &&
+		slotNumbers.length === nBlk
+	) {
+		const ix = [];
+		for (const sn of dc.tiaraSlotNumbers) {
+			const j = slotNumbers.indexOf(sn);
+			if (j >= 0) ix.push(j);
+		}
+		const u = [...new Set(ix)].sort((a, b) => a - b);
+		if (u.length) return u;
+	}
+	if (dc.tiaraBlockIndex != null && Number.isFinite(Number(dc.tiaraBlockIndex))) {
+		const k = Number(dc.tiaraBlockIndex) | 0;
+		if (k >= 0 && k < nBlk) return [k];
+	}
+	return guessTiaraBlks(slotMins, el, nBlk);
+}
+
+// tiara only counts on these cols, everywhere else its 0
+function clampTiaraBlocks(req, nBlk, idxs, poolN) {
+	if (!poolN) {
+		for (let i = 0; i < nBlk; i++) {
 			req[TJG].min[i] = 0;
 			req[TJG].max[i] = 0;
+		}
+		return;
+	}
+	const ok = new Set((idxs || []).filter((i) => i >= 0 && i < nBlk));
+	for (let i = 0; i < nBlk; i++) {
+		if (!ok.has(i)) {
+			req[TJG].min[i] = 0;
+			req[TJG].max[i] = 0;
+		} else {
+			req[TJG].min[i] = poolN;
+			req[TJG].max[i] = poolN;
 		}
 	}
 }
@@ -447,9 +508,18 @@ function isUnavailable(sub, blkLabel, blkIdx) {
 	return !!st && t.includes(st);
 }
 
-function isEligible(sub, role, blkIdx, blkLabel, schedCtx) {
+function pitHeadcount(people, bi) {
+	let n = 0;
+	for (const p of people || []) {
+		const r = (p.schedule || [])[bi] || 'Open';
+		if (r === 'Pits' || r === 'Pit Lead') n++;
+	}
+	return n;
+}
+
+function isEligible(sub, role, blkIdx, blkLabel, schedCtx, people, curPerson) {
 	if (!sub) return false;
-	const { sctCtx, pitLeadIds, noScouting, req, slotNumbers } = schedCtx;
+	const { sctCtx, pitLeadIds, noScouting, req, slotNumbers, tiaraMaxBlocks } = schedCtx;
 	if (!isPresentAtSlot(sub, blkIdx, slotNumbers)) return role === 'Open';
 
 	if (sub.onlyStrategy) return role === 'Open' || role === 'Strategy';
@@ -464,6 +534,20 @@ function isEligible(sub, role, blkIdx, blkLabel, schedCtx) {
 	if (role === TJG) {
 		if (!sub.tiaraPool) return false;
 		if (req && reqAt(req, TJG, blkIdx, 'max') <= 0) return false;
+		if (
+			tiaraMaxBlocks > 0 &&
+			curPerson &&
+			curPerson.schedule &&
+			curPerson.email === sub.email
+		) {
+			const sch = curPerson.schedule;
+			let tj = 0;
+			for (let i = 0; i < sch.length; i++) {
+				if (i === blkIdx) continue;
+				if (sch[i] === TJG) tj++;
+			}
+			if (tj >= tiaraMaxBlocks) return false;
+		}
 	}
 
 	if (role === SCT) {
@@ -535,7 +619,7 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 		let cands = people.filter((p) => {
 			if ((p.schedule || [])[blkIdx] !== 'Open') return false;
 			const sub = sMap.get(p.email);
-			if (!isEligible(sub, role, blkIdx, blk, schedCtx)) return false;
+			if (!isEligible(sub, role, blkIdx, blk, schedCtx, people, p)) return false;
 			if (onlyPreferred && roleAffinity(sub, role, pitLeadIds, noStrategy) <= 0) return false;
 			return true;
 		});
@@ -590,12 +674,23 @@ function buildValidInitialSchedule(subs, blocks, req, schedCtx) {
 				const sub = sMap.get(p.email);
 				return (
 					p.schedule[bi] === 'Open' &&
-					isEligible(sub, SCT, bi, blocks[bi], schedCtx)
+					isEligible(sub, SCT, bi, blocks[bi], schedCtx, people, p)
 				);
 			}).length;
 			const scoutTarget = Math.max(scoutMn, Math.min(scoutMx, eligOpen));
 			assign(bi, SCT, scoutTarget, false);
 		} else if (scoutMn > 0) {
+		}
+
+		if (schedCtx.finalsBlock && schedCtx.finalsBlock[bi]) {
+			while (pitHeadcount(people, bi) > 3) {
+				const victim = people.find((pp) => {
+					const r = (pp.schedule || [])[bi] || 'Open';
+					return r === 'Pits' || r === 'Pit Lead';
+				});
+				if (!victim) break;
+				victim.schedule[bi] = 'Open';
+			}
 		}
 	}
 
@@ -616,10 +711,15 @@ function scoreDay(people, subs, blocks, req, schedCtx) {
 			roleCounts[r] = (roleCounts[r] || 0) + 1;
 			const sub = sMap.get(p.email);
 
-			if (!isEligible(sub, r, bi, blocks[bi], schedCtx)) hardViol++;
+			if (!isEligible(sub, r, bi, blocks[bi], schedCtx, people, p)) hardViol++;
 			if (sub && sub.driveTeam && r !== 'Drive' && r !== 'Open') hardViol++;
 			if (sub && sub.onlyStrategy && r !== 'Open' && r !== 'Strategy') hardViol++;
 			if (r === SCT && !scoutSlotOpen(bi, sctCtx)) hardViol++;
+		}
+
+		if (schedCtx.finalsBlock && schedCtx.finalsBlock[bi]) {
+			const pc = pitHeadcount(people, bi);
+			if (pc > 3) hardViol += pc - 3;
 		}
 
 		for (const role of RL_STAFF) {
@@ -628,6 +728,11 @@ function scoreDay(people, subs, blocks, req, schedCtx) {
 			const got = roleCounts[role] || 0;
 			if (got < mn) hardViol += mn - got;
 			if (got > mx) hardViol += got - mx;
+		}
+
+		if (schedCtx.tiaraBlks && schedCtx.tiaraBlks.includes(bi)) {
+			const g = roleCounts[TJG] || 0;
+			score += g * (g + 1) * 2;
 		}
 	}
 
@@ -645,11 +750,15 @@ function scoreDay(people, subs, blocks, req, schedCtx) {
 		const scoutCnt = sch.filter((r) => r === SCT).length;
 		const pitCnt = sch.filter((r) => r === 'Pits' || r === 'Pit Lead').length;
 		const runSct = maxConsecutiveRun(sch, SCT);
+		const runTj = maxConsecutiveRun(sch, TJG);
+		const tjCnt = sch.filter((r) => r === TJG).length;
 
 		score -= Math.abs(b - avgB) * 28;
 		score -= scoutCnt * scoutCnt * 1.5;
 		score -= pitCnt * pitCnt * 1.2;
 		score -= runSct * runSct * 6;
+		score -= runTj * runTj * 4;
+		score -= tjCnt * tjCnt * 1.1;
 
 		for (const r of sch) {
 			const aff = roleAffinity(sub, r, pitLeadIds, noStrategy);
@@ -678,8 +787,8 @@ function mutateDaySchedule(people, subs, blocks, schedCtx) {
 	const ra = (a.schedule || [])[bi] || 'Open';
 	const rb = (b.schedule || [])[bi] || 'Open';
 
-	if (!isEligible(sMap.get(a.email), rb, bi, blk, schedCtx)) return null;
-	if (!isEligible(sMap.get(b.email), ra, bi, blk, schedCtx)) return null;
+	if (!isEligible(sMap.get(a.email), rb, bi, blk, schedCtx, next, a)) return null;
+	if (!isEligible(sMap.get(b.email), ra, bi, blk, schedCtx, next, b)) return null;
 
 	a.schedule[bi] = rb;
 	b.schedule[bi] = ra;
@@ -697,8 +806,8 @@ function mutateDayScheduleCrossSlot(people, subs, blocks, schedCtx) {
 	const p = next[pi];
 	const ra = (p.schedule || [])[bi] || 'Open';
 	const rb = (p.schedule || [])[bj] || 'Open';
-	if (!isEligible(sMap.get(p.email), ra, bj, blocks[bj], schedCtx)) return null;
-	if (!isEligible(sMap.get(p.email), rb, bi, blocks[bi], schedCtx)) return null;
+	if (!isEligible(sMap.get(p.email), ra, bj, blocks[bj], schedCtx, next, p)) return null;
+	if (!isEligible(sMap.get(p.email), rb, bi, blocks[bi], schedCtx, next, p)) return null;
 	p.schedule[bi] = rb;
 	p.schedule[bj] = ra;
 	return next;
@@ -802,7 +911,6 @@ async function bldSch(CF) {
 		}
 
 		const req = ldReq(CF, blocks.length);
-		patchReqTiara(req, blockWindows, dc.tiaraStart, dc.tiaraEnd);
 
 		let slotMins = dc.slotMinutes;
 		if (!slotMins || slotMins.length !== blocks.length) {
@@ -813,7 +921,20 @@ async function bldSch(CF) {
 			slotNumbers = blocks.map((_, i) => i + 1);
 		}
 
+		const tjPool = (baseSubs || []).filter((s) => s.tiaraPool).length;
+		const tiaraBlks = tiaraBlksFromCfg(dc, slotNumbers, slotMins, blocks.length);
+		clampTiaraBlocks(req, blocks.length, tiaraBlks, tjPool);
+
 		const sctCtx = dayScoutCtx(dc, blockWindows);
+
+		const finalsBlock =
+			Array.isArray(dc.finalsBlock) && dc.finalsBlock.length === blocks.length
+				? dc.finalsBlock
+				: blocks.map(() => false);
+		const tiaraMaxBlocks =
+			dc.tiaraMaxBlocks != null && Number(dc.tiaraMaxBlocks) >= 0
+				? Number(dc.tiaraMaxBlocks)
+				: 2;
 
 		const sx = {
 			sctCtx,
@@ -822,7 +943,10 @@ async function bldSch(CF) {
 			noScouting: noSct,
 			req,
 			slotNumbers,
-			slotMins
+			slotMins,
+			finalsBlock,
+			tiaraMaxBlocks,
+			tiaraBlks
 		};
 		// console.log(sx);
 
