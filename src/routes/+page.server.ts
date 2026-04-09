@@ -73,7 +73,10 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 	};
 	if (personUUID) {
 		let personName = (await getPerson(personUUID))?.displayName;
-		if (!personName) throw new Error('invalid personUUID');
+		if (!personName) {
+			cookies.delete('uuid', { path: '/' });
+			return { view, schedule, slots, roles, currentSlot, nextSlot, currentPerson };
+		}
 		let personSchedule = schedule.find((v) => v.name == personName);
 		let currentRole = personSchedule?.slots[currentSlot.num - 1] ?? null;
 		let nextRole = personSchedule?.slots[currentSlot.num] ?? null;

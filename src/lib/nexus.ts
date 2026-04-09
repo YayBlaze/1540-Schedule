@@ -2,6 +2,7 @@ import { nexusKey } from '$env/static/private';
 import { eventKey, team } from '$lib/config';
 import { getMilestones } from '$lib/db';
 import type { nexusData, nexusMatch } from '$lib/types';
+import { couldStartTrivia } from 'typescript';
 
 var data: nexusData;
 
@@ -129,7 +130,9 @@ export function firstMatch() {
 	const endOfDay = date.getTime();
 	let matches = data.matches;
 	matches = matches.filter(
-		(v) => v.times.estimatedStartTime < endOfDay && v.times.estimatedStartTime > startOfDay
+		(v) =>
+			(v.times.estimatedStartTime ?? v.times.scheduledStartTime) < endOfDay &&
+			(v.times.estimatedStartTime ?? v.times.scheduledStartTime) > startOfDay
 	);
 	return matches[0];
 }

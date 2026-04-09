@@ -16,6 +16,7 @@ import {
 } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { makeSchedule } from '$lib/aldous/scheduling.js';
+import { convertToObject } from 'typescript';
 
 export {
 	addPersonToDaySchedule,
@@ -59,7 +60,6 @@ export async function generateSchedule() {
 
 	const drv = ppl.filter((p) => p.rolePool === RolePool.Drive).length;
 	const pl = ppl.filter((p) => p.rolePool === RolePool.PitLead).length;
-	const strat = ppl.filter((p) => p.rolePool === RolePool.ONLY_Strategy).length;
 
 	const subs = ppl.map((p) => ({
 		name: p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.uuid,
@@ -113,10 +113,7 @@ export async function generateSchedule() {
 			Strategy: { min: 0, max: 3 },
 			Media: { min: 0, max: 1 },
 			'Scouting!': { min: 5, max: 7 },
-			'Tiara Judge': {
-				min: 0,
-				max: Math.max(0, ppl.filter((p) => p.rolePool === RolePool.TiaraJudge).length)
-			}
+			'Tiara Judge': { min: 0, max: 3 }
 		},
 
 		daySchedule: [
@@ -215,7 +212,9 @@ export async function generateSlotsNexus() {
 	const lunchTimes = await getLunchTimes();
 	const { dayStart, dayEnd } = await getEventTimes();
 	const matchesToday = matches.filter(
-		(m) => m.times.estimatedStartTime > dayStart && m.times.estimatedQueueTime < dayEnd
+		(m) =>
+			(m.times.estimatedStartTime ?? m.times.scheduledStartTime) > dayStart &&
+			(m.times.estimatedStartTime ?? m.times.scheduledStartTime) < dayEnd
 	);
 	let id = 1;
 	let slotData = {
