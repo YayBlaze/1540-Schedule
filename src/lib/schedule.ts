@@ -220,7 +220,8 @@ export async function generateSlotsNexus() {
 	let slotData = {
 		slotNumber: id,
 		startTimestamp: dayStart,
-		endTimestamp: matchesToday[0].times.estimatedStartTime,
+		endTimestamp:
+			matchesToday[0].times.estimatedStartTime ?? matchesToday[0].times.scheduledStartTime,
 		startLabel: 'Start of Day',
 		endLabel: formatMatchLabel(matchesToday[0].label, true),
 		allowUpdate: true
@@ -234,8 +235,9 @@ export async function generateSlotsNexus() {
 			const lastMatch = getLastMatch();
 			let slotData = {
 				slotNumber: id,
-				startTimestamp: match.times.estimatedStartTime,
-				endTimestamp: lastMatch.times.estimatedStartTime + 5 * 60 * 1000,
+				startTimestamp: match.times.estimatedStartTime ?? match.times.scheduledStartTime,
+				endTimestamp:
+					lastMatch.times.estimatedStartTime ?? lastMatch.times.scheduledStartTime + 5 * 60 * 1000,
 				startLabel: formatMatchLabel(match.label),
 				endLabel: 'End of Day',
 				allowUpdate: true
@@ -245,8 +247,8 @@ export async function generateSlotsNexus() {
 		}
 		let slotData = {
 			slotNumber: id,
-			startTimestamp: match.times.estimatedStartTime,
-			endTimestamp: nextMath.times.estimatedStartTime,
+			startTimestamp: match.times.estimatedStartTime ?? match.times.scheduledStartTime,
+			endTimestamp: nextMath.times.estimatedStartTime ?? nextMath.times.scheduledStartTime,
 			startLabel: formatMatchLabel(match.label),
 			endLabel: formatMatchLabel(nextMath.label, true),
 			allowUpdate: true
