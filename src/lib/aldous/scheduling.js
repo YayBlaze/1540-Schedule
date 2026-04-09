@@ -304,7 +304,6 @@ function slotMinutesFromWindows(windows) {
 	return windows.map((w) => Math.max(1, blkEndMins(w) - blkStartMins(w)));
 }
 
-// ~1hr tiara window, skip elim cols if we know em
 function guessTiaraBlks(mins, elim, nBlk) {
 	if (!nBlk) return [];
 	if (!mins || mins.length !== nBlk) {
@@ -361,7 +360,6 @@ function tiaraBlksFromCfg(dc, slotNumbers, slotMins, nBlk) {
 	return guessTiaraBlks(slotMins, el, nBlk);
 }
 
-// tiara only counts on these cols, everywhere else its 0
 function clampTiaraBlocks(req, nBlk, idxs, poolN) {
 	if (!poolN) {
 		for (let i = 0; i < nBlk; i++) {
@@ -530,6 +528,10 @@ function isEligible(sub, role, blkIdx, blkLabel, schedCtx, people, curPerson) {
 
 	if (role === 'Drive') return !!sub.driveTeam;
 	if (sub.driveTeam && role !== 'Open') return false;
+
+	if (role === 'Journalist' && !sub.wantsJournalism) return false;
+	if (role === 'Media' && !sub.wantsMedia) return false;
+	if (role === 'Strategy' && !sub.wantsStrategy && !sub.onlyStrategy) return false;
 
 	if (role === TJG) {
 		if (!sub.tiaraPool) return false;

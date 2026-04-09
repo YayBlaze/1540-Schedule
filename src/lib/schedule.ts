@@ -24,7 +24,6 @@ export {
 	removePersonFromDaySchedule
 } from '$lib/aldous/scheduling.js';
 
-// nexus strings are weird; tweak these if elims/finals dont light up
 function looksElim(s: { startLabel: string; endLabel: string }) {
 	const t = `${s.startLabel} ${s.endLabel}`.toLowerCase();
 	if (/prelim/.test(t)) return false;
@@ -130,7 +129,6 @@ export async function generateSchedule() {
 							elimBlock: row.map(looksElim),
 							finalsBlock: row.map(looksFinals),
 							tiaraMaxBlocks: 2,
-							// tiaraSlotNumbers: [3,4] if u care which match; otherwise it guesses ~1hr and skips elims when it can
 							blockLabels: row.map((s) => `${s.startLabel}-${s.endLabel}`),
 							blockWindows: row.map((s) => {
 								const a = new Date(s.startTimestamp).toLocaleTimeString('en-US', {
