@@ -1,6 +1,7 @@
 import {
 	clearSchedule,
 	clearSlots,
+	getCFG,
 	getPeopleAtEvent,
 	getSlots,
 	setPersonSchedule,
@@ -16,7 +17,6 @@ import {
 } from '$lib/nexus';
 import { Role, RolePool } from '$lib/types';
 import { makeSchedule } from '$lib/aldous/scheduling.js';
-import { convertToObject } from 'typescript';
 
 export {
 	addPersonToDaySchedule,
@@ -42,15 +42,15 @@ export async function generateSchedule() {
 	await generateSlotsNexus();
 	const eventTimesMS = await getEventTimes();
 	const eventTimesString = {
-		dayStart: new Date(eventTimesMS.dayStart).toLocaleTimeString('en-US', { hour12: false }),
-		dayEnd: new Date(eventTimesMS.dayEnd).toLocaleTimeString('en-US', { hour12: false })
+		dayStart: new Date(eventTimesMS.dayStart.time).toLocaleTimeString('en-US', { hour12: false }),
+		dayEnd: new Date(eventTimesMS.dayEnd.time).toLocaleTimeString('en-US', { hour12: false })
 	};
 	const lunchTimesMS = await getLunchTimes();
 	const lunchTimesString = {
-		lunchStart: new Date(lunchTimesMS.startTimestamp).toLocaleTimeString('en-US', {
+		lunchStart: new Date(lunchTimesMS.lunchStart.time).toLocaleTimeString('en-US', {
 			hour12: false
 		}),
-		lunchEnd: new Date(lunchTimesMS.endTimestamp).toLocaleTimeString('en-US', { hour12: false })
+		lunchEnd: new Date(lunchTimesMS.lunchEnd.time).toLocaleTimeString('en-US', { hour12: false })
 	};
 	const people = await getPeopleAtEvent();
 	const slots = [...((await getSlots()) || [])].sort((a, b) => a.slotNumber - b.slotNumber);
@@ -208,18 +208,19 @@ export async function generateSlotsNexus() {
 	await fetchData();
 	await clearSlots();
 	const matches = await ourMatches();
+	const event = await getEventTimes();
 	if (!matches || matches.length < 1) return await generateSlotsDummy();
 	const lunchTimes = await getLunchTimes();
 	const { dayStart, dayEnd } = await getEventTimes();
 	const matchesToday = matches.filter(
 		(m) =>
-			(m.times.estimatedStartTime ?? m.times.scheduledStartTime) > dayStart &&
-			(m.times.estimatedStartTime ?? m.times.scheduledStartTime) < dayEnd
+			(m.times.estimatedStartTime ?? m.times.scheduledStartTime) > dayStart.time &&
+			(m.times.estimatedStartTime ?? m.times.scheduledStartTime) < dayEnd.time
 	);
 	let id = 1;
 	let slotData = {
 		slotNumber: id,
-		startTimestamp: dayStart,
+		startTimestamp: dayStart.time,
 		endTimestamp:
 			matchesToday[0].times.estimatedStartTime ?? matchesToday[0].times.scheduledStartTime,
 		startLabel: 'Start of Day',
@@ -237,7 +238,9 @@ export async function generateSlotsNexus() {
 				slotNumber: id,
 				startTimestamp: match.times.estimatedStartTime ?? match.times.scheduledStartTime,
 				endTimestamp:
-					lastMatch.times.estimatedStartTime ?? lastMatch.times.scheduledStartTime + 5 * 60 * 1000,
+					event.dayEnd.time ??
+					lastMatch.times.estimatedStartTime ??
+					lastMatch.times.scheduledStartTime + 5 * 60 * 1000,
 				startLabel: formatMatchLabel(match.label),
 				endLabel: 'End of Day',
 				allowUpdate: true
@@ -254,13 +257,13 @@ export async function generateSlotsNexus() {
 			allowUpdate: true
 		};
 		if (
-			match.times.estimatedStartTime < lunchTimes.startTimestamp &&
-			nextMath.times.estimatedStartTime > lunchTimes.endTimestamp
+			match.times.estimatedStartTime < lunchTimes.lunchStart.time &&
+			nextMath.times.estimatedStartTime > lunchTimes.lunchEnd.time
 		) {
 			slotData = {
 				slotNumber: id,
 				startTimestamp: match.times.estimatedStartTime,
-				endTimestamp: lunchTimes.startTimestamp,
+				endTimestamp: lunchTimes.lunchStart.time,
 				startLabel: formatMatchLabel(match.label),
 				endLabel: 'Lunch',
 				allowUpdate: true
@@ -273,11 +276,11 @@ export async function generateSlotsNexus() {
 export async function generateSlotsDummy() {
 	await clearSlots();
 	const eventTimes = await getEventTimes();
-	let startTimestamp = eventTimes.dayStart;
+	let startTimestamp = eventTimes.dayStart.time;
 	let endTimestamp = startTimestamp + 60 * 60 * 1000;
 	for (let id = 1; id <= 11; id++) {
-		if (startTimestamp > eventTimes.dayEnd) break;
-		else if (endTimestamp > eventTimes.dayEnd) endTimestamp = eventTimes.dayEnd;
+		if (startTimestamp > eventTimes.dayEnd.time) break;
+		else if (endTimestamp > eventTimes.dayEnd.time) endTimestamp = eventTimes.dayEnd.time;
 		await setSlot({
 			slotNumber: id,
 			startTimestamp,

@@ -1,11 +1,27 @@
-import { getPeople, getNamesInRole, getSchedule, getSlots, msToSlot, getPerson } from '$lib/db';
+import {
+	getPeople,
+	getNamesInRole,
+	getSchedule,
+	getSlots,
+	msToSlot,
+	getPerson,
+	getCFG,
+	isValidSession
+} from '$lib/db';
 import { Role } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, cookies }) => {
+	const dbTimings = await getCFG();
+	const scheduleVisible =
+		dbTimings.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
 	const scheduleRAW = await getSchedule();
 	const slots = await getSlots();
 	const people = await getPeople();
+
+	const sessionID = cookies.get('session') ?? '';
+
+	const isValid = await isValidSession(sessionID);
 
 	let searchParams = url.searchParams;
 	let view = searchParams.get('view') ?? 'person';
@@ -51,14 +67,25 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 	let nextSlot = slots[currentSlot.num];
 	if (!nextSlot) {
 		let currentSlotDetailed = slots[currentSlot.num - 1];
-		nextSlot = {
-			slotNumber: currentSlot.num + 1,
-			startTimestamp: currentSlotDetailed.endTimestamp,
-			endTimestamp: currentSlotDetailed.endTimestamp,
-			startLabel: 'End of Day',
-			endLabel: '',
-			allowUpdate: true
-		};
+		if (!currentSlotDetailed)
+			nextSlot = {
+				slotNumber: currentSlot.num + 1,
+				startTimestamp: -1,
+				endTimestamp: -1,
+				startLabel: 'None',
+				endLabel: '',
+				allowUpdate: true
+			};
+		else {
+			nextSlot = {
+				slotNumber: currentSlot.num + 1,
+				startTimestamp: currentSlotDetailed.endTimestamp,
+				endTimestamp: currentSlotDetailed.endTimestamp,
+				startLabel: 'End of Day',
+				endLabel: '',
+				allowUpdate: true
+			};
+		}
 	}
 
 	let personUUID = cookies.get('uuid');
@@ -75,7 +102,16 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 		let personName = (await getPerson(personUUID))?.displayName;
 		if (!personName) {
 			cookies.delete('uuid', { path: '/' });
-			return { view, schedule, slots, roles, currentSlot, nextSlot, currentPerson };
+			return {
+				scheduleVisible,
+				view,
+				schedule,
+				slots,
+				roles,
+				currentSlot,
+				nextSlot,
+				currentPerson
+			};
 		}
 		let personSchedule = schedule.find((v) => v.name == personName);
 		let currentRole = personSchedule?.slots[currentSlot.num - 1] ?? null;
@@ -83,5 +119,15 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 		currentPerson = { personName, currentRole, nextRole };
 	}
 
-	return { view, schedule, slots, roles, currentSlot, nextSlot, currentPerson };
+	return {
+		scheduleVisible,
+		isAdmin: isValid,
+		view,
+		schedule,
+		slots,
+		roles,
+		currentSlot,
+		nextSlot,
+		currentPerson
+	};
 };

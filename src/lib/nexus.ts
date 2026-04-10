@@ -1,6 +1,6 @@
 import { nexusKey } from '$env/static/private';
 import { eventKey, team } from '$lib/config';
-import { getMilestones } from '$lib/db';
+import { getCFG } from '$lib/db';
 import type { nexusData, nexusMatch } from '$lib/types';
 import { couldStartTrivia } from 'typescript';
 
@@ -26,34 +26,66 @@ export async function fetchData() {
 }
 
 export async function getEventTimes() {
-	const milestoneTimes = await getMilestones();
-	const dbEventTimes = milestoneTimes.find((v) => v.name == 'event');
-	let dayStart;
-	let source = 'db';
-	let dayEnd;
-	if (dbEventTimes) {
-		dayStart = dbEventTimes.startTimestamp;
-		dayEnd = dbEventTimes.endTimestamp;
-	} else {
-		source = 'gen';
-		const date = new Date();
-		date.setHours(8, 0, 0, 0);
-		dayStart = firstMatch()?.times.estimatedStartTime ?? date.getTime();
-		date.setHours(18, 0, 0, 0);
-		dayEnd = (lastMatch()?.times.estimatedStartTime ?? date.getTime()) + 5 * 60 * 1000;
+	const milestoneTimes = await getCFG();
+	const dbEventStart = milestoneTimes.find((v) => v.key == 'dayStart');
+	const dbEventEnd = milestoneTimes.find((v) => v.key == 'dayEnd');
+	const dateString = milestoneTimes.find((v) => v.key == 'date')?.value;
+	const date = new Date();
+	const dateStringSplit = dateString?.split('/') ?? null;
+	if (dateStringSplit) {
+		date.setFullYear(
+			parseInt(dateStringSplit[2]),
+			parseInt(dateStringSplit[0]) - 1,
+			parseInt(dateStringSplit[1])
+		);
 	}
-	return { dayStart, dayEnd, fromDB: source == 'db' };
+	let dayStart: { time: number; fromDB: boolean };
+	let dayEnd: { time: number; fromDB: boolean };
+
+	if (dbEventStart) dayStart = { time: parseInt(dbEventStart.value), fromDB: true };
+	else {
+		date.setHours(8, 0, 0, 0);
+		dayStart = {
+			time:
+				firstMatch().times.estimatedStartTime ??
+				firstMatch().times.scheduledStartTime ??
+				date.getTime,
+			fromDB: false
+		};
+	}
+
+	if (dbEventEnd) dayEnd = { time: parseInt(dbEventEnd.value), fromDB: true };
+	else {
+		date.setHours(20, 0, 0, 0);
+		dayEnd = {
+			time:
+				lastMatch().times.estimatedStartTime ??
+				lastMatch().times.scheduledStartTime ??
+				date.getTime,
+			fromDB: false
+		};
+	}
+
+	return { dayStart, dayEnd };
 }
 
 export async function getLunchTimes() {
-	const dbMilestones = await getMilestones();
-	const dbLunch = dbMilestones.find((v) => v.name == 'lunch');
-	if (dbLunch)
-		return {
-			startTimestamp: dbLunch.startTimestamp,
-			endTimestamp: dbLunch.endTimestamp,
-			fromDB: true
-		};
+	const dbMilestones = await getCFG();
+	const dbLunchStart = dbMilestones.find((v) => v.key == 'lunchStart');
+	const dbLunchEnd = dbMilestones.find((v) => v.key == 'lunchEnd');
+	const dateString = dbMilestones.find((v) => v.key == 'date')?.value;
+	const date = new Date();
+	const dateStringSplit = dateString?.split('/') ?? null;
+	if (dateStringSplit) {
+		date.setFullYear(
+			parseInt(dateStringSplit[2]),
+			parseInt(dateStringSplit[0]) - 1,
+			parseInt(dateStringSplit[1])
+		);
+	}
+	let lunchStart: { time: number; fromDB: boolean };
+	let lunchEnd: { time: number; fromDB: boolean };
+
 	let matchBefore = null;
 	let matchAfter = null;
 	for (let match of data.matches) {
@@ -63,19 +95,32 @@ export async function getLunchTimes() {
 		}
 		if (match.breakAfter == 'Lunch') matchBefore = match;
 	}
-	if (!matchBefore || !matchAfter) {
-		const date = new Date();
-		date.setHours(11, 0, 0, 0);
-		const startTimestamp = date.getTime();
-		date.setHours(12, 0, 0, 0);
-		const endTimestamp = date.getTime();
-		return { startTimestamp, endTimestamp, fromDB: false };
+
+	if (dbLunchStart) lunchStart = { time: parseInt(dbLunchStart.value), fromDB: true };
+	else {
+		date.setHours(12, 25, 0, 0);
+		lunchStart = {
+			time:
+				matchBefore?.times.estimatedStartTime ??
+				matchBefore?.times.estimatedQueueTime ??
+				date.getTime() + 5 * 60 * 1000,
+			fromDB: false
+		};
 	}
-	return {
-		startTimestamp: matchBefore.times.estimatedStartTime + 3 * 60 * 1000,
-		endTimestamp: matchAfter.times.estimatedStartTime,
-		fromDB: false
-	};
+
+	if (dbLunchEnd) lunchEnd = { time: parseInt(dbLunchEnd.value), fromDB: true };
+	else {
+		date.setHours(13, 25, 0, 0);
+		lunchEnd = {
+			time:
+				matchAfter?.times.estimatedStartTime ??
+				matchAfter?.times.estimatedQueueTime ??
+				date.getTime() + 5 * 60 * 1000,
+			fromDB: false
+		};
+	}
+
+	return { lunchStart, lunchEnd };
 }
 
 export function getAllianceSelectionTimes() {

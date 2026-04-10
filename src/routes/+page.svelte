@@ -7,6 +7,8 @@
 
 	let { data }: PageProps = $props();
 
+	let visible = $derived(data.scheduleVisible);
+	let isAdmin = $derived(data.isAdmin);
 	let schedule = $derived(data.schedule);
 	let slots = $derived(data.slots);
 	let roles = $derived(data.roles);
@@ -60,7 +62,9 @@
 	}
 
 	const msToTime = (ms: number) => {
-		return new Date(ms).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' });
+		return ms > 0
+			? new Date(ms).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' })
+			: 'Never';
 	};
 
 	function calcRoleTime(role: Role, name: string) {
@@ -129,6 +133,10 @@
 	</div>
 </nav>
 
+{#if !visible && isAdmin}
+	<h1 class="m-auto text-center text-4xl text-(--red)">Viewing as Admin</h1>
+{/if}
+
 <div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
 	<div class="flex flex-col items-center justify-center gap-2">
 		<p>Current Slot: {currentSlot.label}</p>
@@ -156,7 +164,7 @@
 	{/if}
 </div>
 
-{#if view == 'person'}
+{#if (visible || isAdmin) && view == 'person'}
 	<div class="m-auto mb-10 size-fit overflow-x-scroll rounded-xl bg-(--black2) p-5">
 		<table class="nunito">
 			<thead class="text-sm">
@@ -208,7 +216,7 @@
 			</tbody>
 		</table>
 	</div>
-{:else}
+{:else if (visible || isAdmin) && view == 'time'}
 	<div class="nunito flex size-fit flex-col items-center justify-around gap-5">
 		{#each slots as slot}
 			<div class="flex w-[90%] justify-between gap-5 rounded-md bg-(--black2) p-5">
@@ -245,27 +253,33 @@
 			</div>
 		{/each}
 	</div>
+{:else}
+	<div class="nunito flex size-full flex-col items-center justify-around gap-5 text-4xl font-bold">
+		<h1>Schedule not published D:</h1>
+	</div>
 {/if}
 
-<div
-	class="m-auto mt-10 flex h-fit w-[90%] flex-col gap-2 overflow-x-scroll rounded-xl bg-(--black2) p-5"
->
-	{#each schedule as person}
-		<div class="flex items-center gap-2 p-3">
-			<h1>{person.name}</h1>
-			{#each Object.keys(roles[0]) as role}
-				{#if calcRoleTime(role as Role, person.name) != '0s'}
-					<div
-						style="background-color: var({getColor(role as Role)}); color: var({(role as Role) ===
-							Role.Strategy || (role as Role) === Role.Open
-							? '--white'
-							: '--black'});"
-						class="nunito flex gap-1.5 rounded-md p-1 font-medium"
-					>
-						<p>{role}: {calcRoleTime(role as Role, person.name)}</p>
-					</div>
-				{/if}
-			{/each}
-		</div>
-	{/each}
-</div>
+{#if visible || isAdmin}
+	<div
+		class="m-auto mt-10 flex h-fit w-[90%] flex-col gap-2 overflow-x-scroll rounded-xl bg-(--black2) p-5"
+	>
+		{#each schedule as person}
+			<div class="flex items-center gap-2 p-3">
+				<h1>{person.name}</h1>
+				{#each Object.keys(roles[0]) as role}
+					{#if calcRoleTime(role as Role, person.name) != '0s'}
+						<div
+							style="background-color: var({getColor(role as Role)}); color: var({(role as Role) ===
+								Role.Strategy || (role as Role) === Role.Open
+								? '--white'
+								: '--black'});"
+							class="nunito flex gap-1.5 rounded-md p-1 font-medium"
+						>
+							<p>{role}: {calcRoleTime(role as Role, person.name)}</p>
+						</div>
+					{/if}
+				{/each}
+			</div>
+		{/each}
+	</div>
+{/if}

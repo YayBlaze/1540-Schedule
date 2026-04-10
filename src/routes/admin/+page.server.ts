@@ -3,14 +3,15 @@ import {
 	getPeople,
 	getSlots,
 	importPreferences,
-	removeMilestone,
+	removeCFG,
 	removePerson,
 	addPerson,
-	setMilestone,
+	setCFG,
 	setSlot,
 	setSlots,
 	updateRolePool,
-	importPeople
+	importPeople,
+	getCFG
 } from '$lib/db';
 import { fail, type Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
@@ -19,26 +20,37 @@ import { generateSchedule } from '$lib/schedule';
 import { getLunchTimes, getEventTimes } from '$lib/nexus';
 
 export const load: PageServerLoad = async () => {
+	const dbTimings = await getCFG();
+	const scheduleVisible =
+		dbTimings.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
 	const people = await getPeople();
 	let slots = await getSlots();
 	const lunch = await getLunchTimes();
-	const { dayStart, dayEnd, fromDB } = await getEventTimes();
+	const event = await getEventTimes();
+	const dateString = (await getCFG()).find((v) => v.key === 'date')?.value;
 	let times;
 	if (lunch) {
 		times = {
-			lunchStart: new Date(lunch.startTimestamp).toLocaleTimeString('en-US', { hour12: false }),
-			lunchEnd: new Date(lunch.endTimestamp).toLocaleTimeString('en-US', { hour12: false }),
-			dayStart: new Date(dayStart).toLocaleTimeString('en-US', { hour12: false }),
-			dayEnd: new Date(dayEnd).toLocaleTimeString('en-US', { hour12: false })
+			lunchStart: new Date(lunch.lunchStart.time).toLocaleTimeString('en-US', { hour12: false }),
+			lunchEnd: new Date(lunch.lunchEnd.time).toLocaleTimeString('en-US', { hour12: false }),
+			dayStart: new Date(event.dayStart.time).toLocaleTimeString('en-US', { hour12: false }),
+			dayEnd: new Date(event.dayEnd.time).toLocaleTimeString('en-US', { hour12: false })
 		};
 	} else {
 		times = {};
 	}
 	return {
+		scheduleVisible,
 		people,
 		times,
-		fromDB: { event: fromDB, lunch: lunch.fromDB },
-		date: new Date(dayStart).toLocaleDateString('en-US'),
+		fromDB: {
+			eventStart: event.dayStart.fromDB,
+			eventEnd: event.dayEnd.fromDB,
+			lunchStart: lunch.lunchStart.fromDB,
+			lunchEnd: lunch.lunchEnd.fromDB,
+			date: dateString ? true : false
+		},
+		dateString: dateString ?? new Date().toLocaleDateString('en-US'),
 		slots
 	};
 };
@@ -100,29 +112,45 @@ export const actions = {
 				parseInt(dateStringSplit[0]) - 1,
 				parseInt(dateStringSplit[1])
 			);
-		}
-		if (lunchStart && lunchStart != '' && lunchEnd && lunchEnd != '') {
-			const lunchStartSplit = lunchStart.split(':');
-			const lunchEndSplit = lunchEnd.split(':');
-			date.setHours(parseInt(lunchStartSplit[0]), parseInt(lunchStartSplit[1]), 0, 0);
-			const lunchStartMS = date.getTime();
-			date.setHours(parseInt(lunchEndSplit[0]), parseInt(lunchEndSplit[1]), 0, 0);
-			const lunchEndMS = date.getTime();
-			await setMilestone({ name: 'lunch', start: lunchStartMS, end: lunchEndMS });
+			await setCFG({ key: 'date', value: dateString });
 		} else {
-			await removeMilestone('lunch');
+			await removeCFG('date');
 		}
 
-		if (dayStart && dayStart != '' && dayEnd && dayEnd != '') {
+		if (lunchStart && lunchStart != '') {
+			const lunchStartSplit = lunchStart.split(':');
+			date.setHours(parseInt(lunchStartSplit[0]), parseInt(lunchStartSplit[1]), 0, 0);
+			const lunchStartMS = date.getTime();
+			await setCFG({ key: 'lunchStart', value: lunchStartMS });
+		} else {
+			await removeCFG('lunchStart');
+		}
+
+		if (lunchEnd && lunchEnd != '') {
+			const lunchEndSplit = lunchEnd.split(':');
+			date.setHours(parseInt(lunchEndSplit[0]), parseInt(lunchEndSplit[1]), 0, 0);
+			const lunchEndMS = date.getTime();
+			await setCFG({ key: 'lunchEnd', value: lunchEndMS });
+		} else {
+			await removeCFG('lunchEnd');
+		}
+
+		if (dayStart && dayStart != '') {
 			const dayStartSplit = dayStart.split(':');
-			const dayEndSplit = dayEnd.split(':');
 			date.setHours(parseInt(dayStartSplit[0]), parseInt(dayStartSplit[1]), 0, 0);
 			const dayStartMS = date.getTime();
+			await setCFG({ key: 'dayStart', value: dayStartMS });
+		} else {
+			await removeCFG('dayStart');
+		}
+
+		if (dayEnd && dayEnd != '') {
+			const dayEndSplit = dayEnd.split(':');
 			date.setHours(parseInt(dayEndSplit[0]), parseInt(dayEndSplit[1]), 0, 0);
 			const dayEndMS = date.getTime();
-			await setMilestone({ name: 'event', start: dayStartMS, end: dayEndMS });
+			await setCFG({ key: 'dayEnd', value: dayEndMS });
 		} else {
-			await removeMilestone('event');
+			await removeCFG('dayEnd');
 		}
 	},
 	editSlot: async ({ request }) => {
@@ -153,5 +181,11 @@ export const actions = {
 		}
 	},
 	importPrefs: async ({}) => await importPreferences(),
-	importPeople: async ({}) => await importPeople()
+	importPeople: async ({}) => await importPeople(),
+	toggleVisibility: async ({}) => {
+		const dbTimings = await getCFG();
+		const scheduleVisible =
+			dbTimings.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
+		await setCFG({ key: 'scheduleVisible', value: !scheduleVisible });
+	}
 } satisfies Actions;

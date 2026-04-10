@@ -53,10 +53,9 @@ export async function initDB() {
 	`);
 
 	db.run(`
-		CREATE TABLE IF NOT EXISTS milestoneTimes (
-			name TEXT PRIMARY KEY,
-			startTimestamp LONG,
-			endTimestamp LONG
+		CREATE TABLE IF NOT EXISTS timingCfg (
+			key TEXT PRIMARY KEY,
+			value TEXT
 		)
 	`);
 
@@ -308,20 +307,16 @@ export async function clearSlots() {
 	return db.prepare('DELETE FROM slots').run();
 }
 
-export async function getMilestones(): Promise<
-	{ name: string; startTimestamp: number; endTimestamp: number }[]
-> {
-	return db.prepare('SELECT * FROM milestoneTimes').all();
+export async function getCFG(): Promise<{ key: string; value: string }[]> {
+	return db.prepare('SELECT * FROM timingCfg').all();
 }
 
-export async function setMilestone(data: { name: string; start: number; end: number }) {
-	return db
-		.prepare('INSERT OR REPLACE INTO milestoneTimes VALUES (?, ?, ?)')
-		.run(data.name, data.start, data.end);
+export async function setCFG(data: { key: string; value: any }) {
+	return db.prepare('INSERT OR REPLACE INTO timingCfg VALUES (?, ?)').run(data.key, data.value);
 }
 
-export async function removeMilestone(name: string) {
-	return db.prepare('DELETE FROM milestoneTimes WHERE name = ?').run(name);
+export async function removeCFG(key: string) {
+	return db.prepare('DELETE FROM timingCfg WHERE key = ?').run(key);
 }
 
 export async function isValidSession(sessionID: string): Promise<boolean> {

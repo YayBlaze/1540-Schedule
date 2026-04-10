@@ -5,9 +5,10 @@
 	import { team } from '$lib/config';
 	let { data }: PageProps = $props();
 
+	var visible = $derived(data.scheduleVisible);
 	var people = $derived(data.people);
 	var times = $derived(data.times);
-	var date = $derived(data.date);
+	var date = $derived(data.dateString);
 	var slots = $derived(data.slots);
 	var fromDB = $derived(data.fromDB);
 	// svelte-ignore state_referenced_locally
@@ -51,6 +52,19 @@
 
 <div class="flex w-full flex-col justify-around gap-5 p-3">
 	<div class="item flex flex-col gap-2">
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Toggle visibility</h1>
+				<p class="pb-1 text-sm text-(--grey)">
+					Toggles tht state of the schedule between something everyone can see to only admins
+				</p>
+			</div>
+			<form action="?/toggleVisibility" method="post">
+				<button id="submit" class={visible ? 'button-green' : 'button-red'}
+					>{visible ? 'Visible' : 'Hidden'}</button
+				>
+			</form>
+		</div>
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="text-xl">Generate Schedule</h1>
@@ -213,6 +227,7 @@
 				name="date"
 				placeholder="Event Date"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				style="color: var({fromDB.date ? '--yellow' : '--white'});"
 				bind:value={date}
 			/>
 			<input
@@ -220,7 +235,7 @@
 				name="dayStart"
 				placeholder="Event Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
-				style="color: var({fromDB.event ? '--yellow' : '--white'});"
+				style="color: var({fromDB.eventStart ? '--yellow' : '--white'});"
 				bind:value={dayStart}
 			/>
 			<input
@@ -228,7 +243,7 @@
 				name="lunchStart"
 				placeholder="Lunch Start"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
-				style="color: var({fromDB.lunch ? '--yellow' : '--white'});"
+				style="color: var({fromDB.lunchStart ? '--yellow' : '--white'});"
 				bind:value={lunchStart}
 			/>
 			<input
@@ -236,7 +251,7 @@
 				name="lunchEnd"
 				placeholder="Lunch End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
-				style="color: var({fromDB.lunch ? '--yellow' : '--white'});"
+				style="color: var({fromDB.lunchEnd ? '--yellow' : '--white'});"
 				bind:value={lunchEnd}
 			/>
 			<input
@@ -244,7 +259,7 @@
 				name="dayEnd"
 				placeholder="Event End"
 				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
-				style="color: var({fromDB.event ? '--yellow' : '--white'});"
+				style="color: var({fromDB.eventEnd ? '--yellow' : '--white'});"
 				bind:value={dayEnd}
 			/>
 			<button
