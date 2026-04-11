@@ -47,8 +47,8 @@ export async function getEventTimes() {
 		date.setHours(8, 0, 0, 0);
 		dayStart = {
 			time:
-				firstMatch().times.estimatedStartTime ??
-				firstMatch().times.scheduledStartTime ??
+				(await firstMatch()).times.estimatedStartTime ??
+				(await firstMatch()).times.scheduledStartTime ??
 				date.getTime,
 			fromDB: false
 		};
@@ -56,11 +56,11 @@ export async function getEventTimes() {
 
 	if (dbEventEnd) dayEnd = { time: parseInt(dbEventEnd.value), fromDB: true };
 	else {
-		date.setHours(20, 0, 0, 0);
+		date.setHours(18, 0, 0, 0);
 		dayEnd = {
 			time:
-				lastMatch().times.estimatedStartTime ??
-				lastMatch().times.scheduledStartTime ??
+				(await lastMatch()).times.estimatedStartTime ??
+				(await lastMatch()).times.scheduledStartTime ??
 				date.getTime,
 			fromDB: false
 		};
@@ -154,8 +154,18 @@ export async function ourMatches() {
 	);
 }
 
-export function lastMatch() {
+export async function lastMatch() {
+	const milestoneTimes = await getCFG();
+	const dateString = milestoneTimes.find((v) => v.key == 'date')?.value;
 	const date = new Date();
+	const dateStringSplit = dateString?.split('/') ?? null;
+	if (dateStringSplit) {
+		date.setFullYear(
+			parseInt(dateStringSplit[2]),
+			parseInt(dateStringSplit[0]) - 1,
+			parseInt(dateStringSplit[1])
+		);
+	}
 	date.setHours(0, 0, 0, 0);
 	const startOfDay = date.getTime();
 	date.setHours(23, 59, 59, 999);
@@ -167,8 +177,18 @@ export function lastMatch() {
 	return matches[matches.length - 1];
 }
 
-export function firstMatch() {
+export async function firstMatch() {
+	const milestoneTimes = await getCFG();
+	const dateString = milestoneTimes.find((v) => v.key == 'date')?.value;
 	const date = new Date();
+	const dateStringSplit = dateString?.split('/') ?? null;
+	if (dateStringSplit) {
+		date.setFullYear(
+			parseInt(dateStringSplit[2]),
+			parseInt(dateStringSplit[0]) - 1,
+			parseInt(dateStringSplit[1])
+		);
+	}
 	date.setHours(0, 0, 0, 0);
 	const startOfDay = date.getTime();
 	date.setHours(23, 59, 59, 999);

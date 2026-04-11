@@ -1,7 +1,6 @@
 import {
 	clearSchedule,
 	clearSlots,
-	getCFG,
 	getPeopleAtEvent,
 	getSlots,
 	setPersonSchedule,
@@ -191,13 +190,16 @@ export async function updateSlotTiming() {
 	await fetchData();
 	const matches = await ourMatches();
 	const slots = await getSlots();
+	console.log(
+		`Starting to update slot timing at ${new Date().toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' })}`
+	);
 	for (let slot of slots) {
 		if (!slot.allowUpdate) continue;
 		let startMatchTime = matches.find((match) => formatMatchLabel(match.label) == slot.startLabel)
 			?.times.estimatedStartTime;
 		if (startMatchTime && startMatchTime != slot.startTimestamp) {
 			console.log(
-				`Updated slot ${slot.startLabel}-${slot.endLabel} to start at ${new Date(startMatchTime).toLocaleTimeString('en-US')}`
+				`Updated slot ${slot.startLabel}-${slot.endLabel} to start at ${new Date(startMatchTime).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' })}`
 			);
 			slot.startTimestamp = startMatchTime;
 		}
@@ -205,7 +207,7 @@ export async function updateSlotTiming() {
 			?.times.estimatedStartTime;
 		if (endMatchTime && endMatchTime != slot.endTimestamp) {
 			console.log(
-				`Updated slot ${slot.startLabel}-${slot.endLabel} to start at ${new Date(endMatchTime).toLocaleTimeString('en-US')}`
+				`Updated slot ${slot.startLabel}-${slot.endLabel} to start at ${new Date(endMatchTime).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' })}`
 			);
 			slot.endTimestamp = endMatchTime;
 		}
@@ -242,7 +244,7 @@ export async function generateSlotsNexus() {
 		let match = matchesToday[i];
 		let nextMath = matchesToday[i + 1];
 		if (i + 1 >= matchesToday.length) {
-			const lastMatch = getLastMatch();
+			const lastMatch = await getLastMatch();
 			let slotData = {
 				slotNumber: id,
 				startTimestamp: match.times.estimatedStartTime ?? match.times.scheduledStartTime,
