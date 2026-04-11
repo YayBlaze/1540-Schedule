@@ -2,11 +2,11 @@ import { nexusKey } from '$env/static/private';
 import { eventKey, team } from '$lib/config';
 import { getCFG } from '$lib/db';
 import type { nexusData, nexusMatch } from '$lib/types';
-import { couldStartTrivia } from 'typescript';
 
 var data: nexusData;
 
 export async function fetchData() {
+	if (data?.dataAsOfTime > Date.now() - 5 * 60 * 1000) return;
 	const response = await fetch(`https://frc.nexus/api/v1/event/${eventKey}`, {
 		method: 'GET',
 		headers: {

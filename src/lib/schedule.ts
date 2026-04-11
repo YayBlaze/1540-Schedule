@@ -192,14 +192,23 @@ export async function updateSlotTiming() {
 	const slots = await getSlots();
 	for (let slot of slots) {
 		if (!slot.allowUpdate) continue;
-		let startMatch = matches.find((match) => formatMatchLabel(match.label) == slot.startLabel);
-		slot.startTimestamp = startMatch?.times.estimatedStartTime ?? slot.startTimestamp;
-		let endMatch = matches.find((match) => formatMatchLabel(match.label) == slot.endLabel);
-		slot.endTimestamp = endMatch?.times.estimatedStartTime ?? slot.endTimestamp;
+		let startMatchTime = matches.find((match) => formatMatchLabel(match.label) == slot.startLabel)
+			?.times.estimatedStartTime;
+		if (startMatchTime && startMatchTime != slot.startTimestamp) {
+			console.log(
+				`Updated slot ${slot.startLabel}-${slot.endLabel} to start at ${new Date(startMatchTime).toLocaleTimeString('en-US')}`
+			);
+			slot.startTimestamp = startMatchTime;
+		}
+		let endMatchTime = matches.find((match) => formatMatchLabel(match.label) == slot.endLabel)
+			?.times.estimatedStartTime;
+		if (endMatchTime && endMatchTime != slot.endTimestamp) {
+			console.log(
+				`Updated slot ${slot.startLabel}-${slot.endLabel} to start at ${new Date(endMatchTime).toLocaleTimeString('en-US')}`
+			);
+			slot.endTimestamp = endMatchTime;
+		}
 	}
-	console.log(
-		`Updated Nexus slot timing at ${new Date().toLocaleTimeString('en-US', { hour12: false })}`
-	);
 }
 
 export async function generateSlotsNexus() {
