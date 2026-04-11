@@ -5,7 +5,8 @@ import {
 	getPeopleAtEvent,
 	getSlots,
 	setPersonSchedule,
-	setSlot
+	setSlot,
+	setSlots
 } from '$lib/db';
 import {
 	getLunchTimes,
@@ -209,6 +210,7 @@ export async function updateSlotTiming() {
 			slot.endTimestamp = endMatchTime;
 		}
 	}
+	await setSlots(slots);
 }
 
 export async function generateSlotsNexus() {

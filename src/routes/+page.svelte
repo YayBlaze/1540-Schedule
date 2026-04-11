@@ -149,11 +149,15 @@
 	{#if nextSlot}
 		<div class="flex flex-col items-center justify-center gap-2 border-l-2 border-(--white) pl-2">
 			<p>
-				Next Slot: {nextSlot.startLabel != ''
-					? nextSlot.startLabel
-					: msToTime(nextSlot.slotNumber)}-{nextSlot.endLabel != ''
-					? nextSlot.endLabel
-					: msToTime(nextSlot.endTimestamp)} in {timeToNextSlot}
+				{#if nextSlot.startLabel != 'None'}
+					Next Slot: {nextSlot.startLabel != ''
+						? nextSlot.startLabel
+						: msToTime(nextSlot.slotNumber)}-{nextSlot.endLabel != ''
+						? nextSlot.endLabel
+						: msToTime(nextSlot.endTimestamp)} in {timeToNextSlot}
+				{:else}
+					Next Slot: None
+				{/if}
 			</p>
 			{#if nextRole}
 				<p style="color: var({nextRole != Role.Open ? getColor(nextRole) : 'white'}">

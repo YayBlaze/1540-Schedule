@@ -81,7 +81,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 				slotNumber: currentSlot.num + 1,
 				startTimestamp: currentSlotDetailed.endTimestamp,
 				endTimestamp: currentSlotDetailed.endTimestamp,
-				startLabel: 'End of Day',
+				startLabel: 'None',
 				endLabel: '',
 				allowUpdate: true
 			};
