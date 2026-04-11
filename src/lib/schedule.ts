@@ -38,7 +38,6 @@ function looksFinals(s: { startLabel: string; endLabel: string }) {
 
 export async function generateSchedule() {
 	await clearSchedule();
-	await generateSlotsNexus();
 	const eventTimesMS = await getEventTimes();
 	const eventTimesString = {
 		dayStart: new Date(eventTimesMS.dayStart.time).toLocaleTimeString('en-US', { hour12: false }),

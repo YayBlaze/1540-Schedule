@@ -160,7 +160,7 @@ export const actions = {
 		const startTimeString = data.get('startTimestamp')?.toString();
 		const endLabel = data.get('endLabel')?.toString();
 		const endTimeString = data.get('endTimestamp')?.toString();
-		const allowUpdate = data.get('allowUpdate')?.toString() === 'on';
+		const allowUpdate = data.get('allowUpdates')?.toString() === 'on';
 		if (!slotString || !startTimeString || !endTimeString) return fail(400);
 		let slotNumber = parseInt(slotString);
 		if (!startLabel || !endLabel) {
