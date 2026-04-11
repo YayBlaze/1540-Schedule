@@ -150,7 +150,11 @@ export function getAllianceSelectionTimes() {
 export async function ourMatches() {
 	await fetchData();
 	return data.matches.filter(
-		(m: nexusMatch) => m.redTeams?.includes(team) || m.blueTeams?.includes(team)
+		(m: nexusMatch) =>
+			m.redTeams?.includes(team) ||
+			m.blueTeams?.includes(team) ||
+			m.label?.includes('Playoff') ||
+			m.label?.includes('Final')
 	);
 }
 
