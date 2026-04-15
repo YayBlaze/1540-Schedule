@@ -1,5 +1,5 @@
 export type Preferences = {
-	doPits: 0 | 1 | 2 | 3 | 4 | 5; // 0 = doesn't want pits, 5 = wants as much pits as possible
+	doPits: boolean;
 	doMedia: boolean;
 	doStrategy: boolean;
 	doJournalism: boolean;
@@ -11,6 +11,7 @@ export type PersonData = {
 	lastName: string;
 	displayName: string;
 	email: string;
+	phone: number;
 	attendingEvent: boolean;
 	attendingLoadIn: boolean;
 	slotsAttending: number[]; // the numbers of the slots they are attending; to be used if someone is arriving late or leaving early

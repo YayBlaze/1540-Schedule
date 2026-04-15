@@ -9,9 +9,9 @@
 <nav class="mb-5 flex h-fit w-full items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<h1 class="text-4xl text-(--black)">Login</h1>
 	<button
-		onclick={() => goto('/')}
+		onclick={() => goto('/admin')}
 		class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
-		>Return to Schedule</button
+		>Admin</button
 	>
 </nav>
 
@@ -23,7 +23,7 @@
 	<h1>Please select your name:</h1>
 	<select
 		name="personSelect"
-		class="h-fit w-[70%] rounded-md border border-(--grey) p-1 text-(--white)"
+		class="h-fit w-[70%] rounded-md border border-(--grey) bg-[#3c3c3c] p-1 text-(--white)"
 	>
 		{#each people as person}
 			{#if person.attendingEvent}

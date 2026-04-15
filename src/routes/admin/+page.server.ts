@@ -16,7 +16,7 @@ import {
 import { fail, type Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { RolePool } from '$lib/types';
-import { generateSchedule } from '$lib/schedule';
+import { generateSchedule, generateSlotsNexus } from '$lib/schedule';
 import { getLunchTimes, getEventTimes } from '$lib/nexus';
 
 export const load: PageServerLoad = async () => {
@@ -57,6 +57,7 @@ export const load: PageServerLoad = async () => {
 
 export const actions = {
 	generate: async () => await generateSchedule(),
+	generateSlots: async () => await generateSlotsNexus(),
 	assign: async ({ request }) => {
 		const data = await request.formData();
 		const uuid = data.get('person')?.toString();

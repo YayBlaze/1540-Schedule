@@ -17,7 +17,7 @@
 	let timeToNextSlot = $derived(msToRelative(nextSlot?.startTimestamp ?? Date.now() - Date.now()));
 	let view = $derived(data.view);
 	let currentPerson = $derived(data.currentPerson);
-	let personName = $derived(currentPerson.personName);
+	let personData = $derived(currentPerson.data);
 	let currentRole = $derived(currentPerson.currentRole);
 	let nextRole = $derived(currentPerson.nextRole);
 
@@ -87,7 +87,6 @@
 
 	let interval: NodeJS.Timeout;
 	onMount(() => {
-		console.log(personName);
 		if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
 		interval = setInterval(() => {
 			if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
@@ -121,9 +120,9 @@
 
 	<div>
 		<button
-			onclick={() => goto('/login')}
-			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
-			>Login</button
+			onclick={() => goto('/logout')}
+			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--red) transition duration-200 hover:border-(--red) hover:bg-(--white) hover:text-(--red)"
+			>Logout</button
 		>
 		<button
 			onclick={() => goto('/admin')}
@@ -136,6 +135,13 @@
 {#if !visible && isAdmin}
 	<h1 class="m-auto text-center text-4xl text-(--red)">Viewing as Admin</h1>
 {/if}
+
+<div class="flex items-center justify-center gap-2">
+	<h1 class="text-2xl">Welcome {personData?.displayName}</h1>
+	<button class="button-primary" onclick={() => goto(`/user/${personData?.uuid}`)}
+		>View Person Page</button
+	>
+</div>
 
 <div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
 	<div class="flex flex-col items-center justify-center gap-2">
@@ -196,10 +202,13 @@
 					<tr>
 						<td
 							class="p-2"
-							style="color: var({personName == person.name
+							style="color: var({personData?.displayName == person.name
 								? '--yellow'
-								: '--white'}); font-weight: {personName == person.name ? 900 : 400}"
-							>{person.name}</td
+								: '--white'}); font-weight: {personData?.displayName == person.name ? 900 : 400}"
+							onclick={() => {
+								console.log(isAdmin);
+								if (isAdmin) goto(`/user/${person.uuid}`);
+							}}>{person.name}</td
 						>
 						{#each person.slots as slot}
 							{#if slot}
@@ -287,3 +296,21 @@
 		{/each}
 	</div>
 {/if}
+
+<style>
+	.button-primary {
+		height: fit-content;
+		border: 1px solid var(--white);
+		border-radius: 10px;
+		background-color: var(--white);
+		padding: 0.5rem;
+		color: var(--black);
+		transition-property: color, background-color;
+		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+		transition-duration: 200ms;
+	}
+	.button-primary:hover {
+		background-color: var(--black2);
+		color: var(--white);
+	}
+</style>

@@ -6,12 +6,18 @@ import {
 	msToSlot,
 	getPerson,
 	getCFG,
-	isValidSession
+	isValidSession,
+	identityFromSessionID
 } from '$lib/db';
-import { Role } from '$lib/types';
+import { Role, type PersonData } from '$lib/types';
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, cookies }) => {
+	let sessionID = cookies.get('session');
+	if (!sessionID) return redirect(303, '/login');
+	let personUUID = await identityFromSessionID(sessionID);
+	if (!personUUID) return redirect(303, '/login');
 	const dbTimings = await getCFG();
 	const scheduleVisible =
 		dbTimings.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
@@ -19,9 +25,8 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 	const slots = await getSlots();
 	const people = await getPeople();
 
-	const sessionID = cookies.get('session') ?? '';
-
-	const isValid = await isValidSession(sessionID);
+	const adminSession = cookies.get('adminSession') ?? '';
+	const isAdmin = await isValidSession(adminSession, 'admin');
 
 	let searchParams = url.searchParams;
 	let view = searchParams.get('view') ?? 'person';
@@ -33,6 +38,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 
 	let schedule = scheduleRAW.map((row) => ({
 		name: peopleLookUp[row.personUUID],
+		uuid: row.personUUID,
 		slots: Object.keys(row)
 			.filter(
 				(key) =>
@@ -88,19 +94,18 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 		}
 	}
 
-	let personUUID = cookies.get('uuid');
 	let currentPerson: {
-		personName: string | null;
+		data: PersonData | null;
 		currentRole: Role | null;
 		nextRole: Role | null;
 	} = {
-		personName: null,
+		data: null,
 		currentRole: null,
 		nextRole: null
 	};
 	if (personUUID) {
-		let personName = (await getPerson(personUUID))?.displayName;
-		if (!personName) {
+		let data = await getPerson(personUUID);
+		if (!data) {
 			cookies.delete('uuid', { path: '/' });
 			return {
 				scheduleVisible,
@@ -113,15 +118,15 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 				currentPerson
 			};
 		}
-		let personSchedule = schedule.find((v) => v.name == personName);
+		let personSchedule = schedule.find((v) => v.name == data.displayName);
 		let currentRole = personSchedule?.slots[currentSlot.num - 1] ?? null;
 		let nextRole = personSchedule?.slots[currentSlot.num] ?? null;
-		currentPerson = { personName, currentRole, nextRole };
+		currentPerson = { data, currentRole, nextRole };
 	}
 
 	return {
 		scheduleVisible,
-		isAdmin: isValid,
+		isAdmin,
 		view,
 		schedule,
 		slots,

@@ -83,7 +83,7 @@
 					Re-generate the slots without affecting the schedule
 				</p>
 			</div>
-			<form action="?/generate" method="post">
+			<form action="?/generateSlots" method="post">
 				<button class="button-primary" id="submit">Generate Slots</button>
 			</form>
 		</div>
@@ -120,27 +120,27 @@
 			<form
 				action="?/newPerson"
 				method="post"
-				class="flex h-fit w-full items-center justify-around pb-2"
+				class="flex h-fit w-full items-center justify-around gap-2 pb-2"
 			>
 				<input
 					type="text"
+					class="textInput"
 					name="firstName"
 					placeholder="First Name"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
 					bind:value={newFirstName}
 				/>
 				<input
 					type="text"
+					class="textInput"
 					name="lastName"
 					placeholder="Last Name"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
 					bind:value={newLastName}
 				/>
 				<input
 					type="text"
+					class="textInput"
 					name="email"
 					placeholder="Email"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
 					bind:value={newEmail}
 				/>
 				<button id="submit" class="button-primary">Add</button>
@@ -153,13 +153,13 @@
 						<p>{person.displayName}</p>
 						<div class="flex h-fit items-center justify-around gap-1">
 							<form action="?/updateStatus" method="post">
-								<input type="hidden" name="id" value={person.uuid} />
+								<input type="hidden" class="textInput" name="id" value={person.uuid} />
 								<button id="submit" class={person.attendingEvent ? 'button-green' : 'button-red'}>
 									{person.attendingEvent ? 'Attending' : 'Missing'}
 								</button>
 							</form>
 							<form action="?/deletePerson" method="post">
-								<input name="id" type="hidden" value={person.uuid} />
+								<input name="id" class="textInput" type="hidden" value={person.uuid} />
 								<button id="submit" class="button-destructive">Remove</button>
 							</form>
 						</div>
@@ -173,22 +173,16 @@
 			<form
 				action="?/assign"
 				method="post"
-				class="flex h-fit w-full items-center justify-around pb-2"
+				class="flex h-fit w-full items-center justify-around gap-2 pb-2"
 			>
-				<select
-					name="person"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
-				>
+				<select name="person" class="w-full">
 					{#each people as person}
 						{#if person.attendingEvent && (!person.rolePool || person.rolePool == RolePool.None)}
 							<option value={person.uuid}>{person.displayName}</option>
 						{/if}
 					{/each}
 				</select>
-				<select
-					name="role"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
-				>
+				<select name="role" class="w-full">
 					<option value={RolePool.PitLead}>Pit Lead</option>
 					<option value={RolePool.Drive}>Drive Team</option>
 					<option value={RolePool.NO_Scouting}>No Scouting</option>
@@ -208,7 +202,7 @@
 						>
 							<p>{person.displayName} -> {person.rolePool}</p>
 							<form action="?/deleteAssignment" method="post">
-								<input name="id" type="hidden" value={person.uuid} />
+								<input name="id" type="hidden" class="textInput" value={person.uuid} />
 								<button id="submit" class="button-destructive">Remove</button>
 							</form>
 						</div>
@@ -226,7 +220,7 @@
 				type="text"
 				name="date"
 				placeholder="Event Date"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				class="textInput"
 				style="color: var({fromDB.date ? '--yellow' : '--white'});"
 				bind:value={date}
 			/>
@@ -234,7 +228,7 @@
 				type="text"
 				name="dayStart"
 				placeholder="Event Start"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				class="textInput"
 				style="color: var({fromDB.eventStart ? '--yellow' : '--white'});"
 				bind:value={dayStart}
 			/>
@@ -242,7 +236,7 @@
 				type="text"
 				name="lunchStart"
 				placeholder="Lunch Start"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				class="textInput"
 				style="color: var({fromDB.lunchStart ? '--yellow' : '--white'});"
 				bind:value={lunchStart}
 			/>
@@ -250,7 +244,7 @@
 				type="text"
 				name="lunchEnd"
 				placeholder="Lunch End"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				class="textInput"
 				style="color: var({fromDB.lunchEnd ? '--yellow' : '--white'});"
 				bind:value={lunchEnd}
 			/>
@@ -258,7 +252,7 @@
 				type="text"
 				name="dayEnd"
 				placeholder="Event End"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				class="textInput"
 				style="color: var({fromDB.eventEnd ? '--yellow' : '--white'});"
 				bind:value={dayEnd}
 			/>
@@ -286,31 +280,31 @@
 					action="?/editSlot"
 				>
 					<h1>Slot {slot.slotNumber}</h1>
-					<input type="hidden" name="slotNum" value={slot.slotNumber} />
+					<input type="hidden" class="textInput" name="slotNum" value={slot.slotNumber} />
 					<input
 						type="text"
 						name="startLabel"
 						placeholder="Start Label"
-						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						class="textInput"
 						value={slot.startLabel}
 					/>
 					<input
 						type="datetime-local"
 						name="startTimestamp"
-						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						class="textInput"
 						value={toDatetimeLocal(slot.startTimestamp)}
 					/>
 					<input
 						type="text"
 						name="endLabel"
 						placeholder="End Label"
-						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						class="textInput"
 						value={slot.endLabel}
 					/>
 					<input
 						type="datetime-local"
 						name="endTimestamp"
-						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						class="textInput"
 						placeholder="End Timestamp"
 						value={toDatetimeLocal(slot.endTimestamp)}
 					/>
@@ -338,6 +332,16 @@
 		margin: auto;
 		border: 1px solid var(--white);
 		border-radius: 20px;
+	}
+
+	select,
+	.textInput {
+		height: fit-content;
+		border: 1px solid var(--grey);
+		border-radius: 0.375rem;
+		padding: 0.25rem;
+		color: var(--white);
+		background-color: #3c3c3c;
 	}
 
 	.button-primary {

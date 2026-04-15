@@ -32,7 +32,7 @@ export async function getEventTimes() {
 	const dateString = milestoneTimes.find((v) => v.key == 'date')?.value;
 	const date = new Date();
 	const dateStringSplit = dateString?.split('/') ?? null;
-	if (dateStringSplit) {
+	if (dateStringSplit && dateStringSplit.length == 3) {
 		date.setFullYear(
 			parseInt(dateStringSplit[2]),
 			parseInt(dateStringSplit[0]) - 1,
@@ -47,9 +47,9 @@ export async function getEventTimes() {
 		date.setHours(8, 0, 0, 0);
 		dayStart = {
 			time:
-				(await firstMatch()).times.estimatedStartTime ??
-				(await firstMatch()).times.scheduledStartTime ??
-				date.getTime,
+				(await firstMatch())?.times.estimatedStartTime ??
+				(await firstMatch())?.times.scheduledStartTime ??
+				date.getTime(),
 			fromDB: false
 		};
 	}
@@ -59,9 +59,9 @@ export async function getEventTimes() {
 		date.setHours(18, 0, 0, 0);
 		dayEnd = {
 			time:
-				(await lastMatch()).times.estimatedStartTime ??
-				(await lastMatch()).times.scheduledStartTime ??
-				date.getTime,
+				(await lastMatch())?.times.estimatedStartTime ??
+				(await lastMatch())?.times.scheduledStartTime ??
+				date.getTime(),
 			fromDB: false
 		};
 	}
@@ -88,12 +88,14 @@ export async function getLunchTimes() {
 
 	let matchBefore = null;
 	let matchAfter = null;
-	for (let match of data.matches) {
-		if (matchBefore != null) {
-			matchAfter = match;
-			break;
+	if (data?.matches) {
+		for (let match of data.matches) {
+			if (matchBefore != null) {
+				matchAfter = match;
+				break;
+			}
+			if (match.breakAfter == 'Lunch') matchBefore = match;
 		}
-		if (match.breakAfter == 'Lunch') matchBefore = match;
 	}
 
 	if (dbLunchStart) lunchStart = { time: parseInt(dbLunchStart.value), fromDB: true };
@@ -149,7 +151,7 @@ export function getAllianceSelectionTimes() {
 
 export async function ourMatches() {
 	await fetchData();
-	return data.matches.filter(
+	return data?.matches.filter(
 		(m: nexusMatch) =>
 			m.redTeams?.includes(team) ||
 			m.blueTeams?.includes(team) ||
@@ -174,10 +176,11 @@ export async function lastMatch() {
 	const startOfDay = date.getTime();
 	date.setHours(23, 59, 59, 999);
 	const endOfDay = date.getTime();
-	let matches = data.matches;
-	matches = matches.filter(
-		(v) => v.times.estimatedStartTime < endOfDay && v.times.estimatedStartTime > startOfDay
-	);
+	let matches = data?.matches;
+	matches =
+		matches?.filter(
+			(v) => v.times.estimatedStartTime < endOfDay && v.times.estimatedStartTime > startOfDay
+		) ?? [];
 	return matches[matches.length - 1];
 }
 
@@ -197,12 +200,13 @@ export async function firstMatch() {
 	const startOfDay = date.getTime();
 	date.setHours(23, 59, 59, 999);
 	const endOfDay = date.getTime();
-	let matches = data.matches;
-	matches = matches.filter(
-		(v) =>
-			(v.times.estimatedStartTime ?? v.times.scheduledStartTime) < endOfDay &&
-			(v.times.estimatedStartTime ?? v.times.scheduledStartTime) > startOfDay
-	);
+	let matches = data?.matches;
+	matches =
+		matches?.filter(
+			(v) =>
+				(v.times.estimatedStartTime ?? v.times.scheduledStartTime) < endOfDay &&
+				(v.times.estimatedStartTime ?? v.times.scheduledStartTime) > startOfDay
+		) ?? [];
 	return matches[0];
 }
 

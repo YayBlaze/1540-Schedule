@@ -1,4 +1,4 @@
-import { getPeople } from '$lib/db';
+import { getPeople, newSession } from '$lib/db';
 import type { Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
@@ -15,7 +15,8 @@ export const actions = {
 		if (!personUUID) {
 			return fail(400);
 		} else {
-			cookies.set('uuid', personUUID, { path: '/' });
+			const sessionID = await newSession(personUUID);
+			cookies.set('session', sessionID, { path: '/' });
 			redirect(303, '/');
 		}
 	}

@@ -17,6 +17,7 @@ export async function initDB() {
 			lastName TEXT,
 			displayName TEXT,
 			email TEXT,
+			phone INT,
 			attendingEvent BOOLEAN,
 			attendingLoadIn BOOLEAN,
 			rolePool TEXT,
@@ -62,7 +63,8 @@ export async function initDB() {
 	db.run(`
 		CREATE TABLE IF NOT EXISTS sessions (
 			session_id CHAR(36),
-			session_expire LONG
+			session_expire LONG,
+			session_identity TEXT
 		)
 	`);
 }
@@ -94,13 +96,14 @@ export async function getPeopleAtEvent(): Promise<PersonData[]> {
 export async function addPerson(data: { firstName: string; lastName: string; email: string }) {
 	const personUUID = Bun.randomUUIDv7();
 	await db
-		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
 		.run(
 			personUUID,
 			data.firstName,
 			data.lastName,
 			data.firstName,
 			data.email,
+			null,
 			false,
 			false,
 			RolePool.None,
@@ -108,6 +111,25 @@ export async function addPerson(data: { firstName: string; lastName: string; ema
 		);
 	await formatName(data.firstName, data.lastName);
 	return personUUID;
+}
+
+export async function updatePerson(data: PersonData) {
+	await db
+		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+		.run(
+			data.uuid,
+			data.firstName,
+			data.lastName,
+			data.firstName,
+			data.email,
+			data.phone,
+			data.attendingEvent,
+			data.attendingLoadIn,
+			data.rolePool,
+			JSON.stringify(data.preferences)
+		);
+	await formatName(data.firstName, data.lastName);
+	return data.uuid;
 }
 
 export async function removePerson(personUUID: string) {
@@ -159,7 +181,7 @@ export async function randomizePreferences() {
 	const people = await getPeople();
 	for (let person of people) {
 		updatePreferences(person.uuid, {
-			doPits: Math.floor(Math.random() * 6) as 0 | 1 | 2 | 3 | 4 | 5,
+			doPits: Math.random() > 0.5,
 			doMedia: Math.random() > 0.5,
 			doStrategy: Math.random() > 0.5,
 			doJournalism: Math.random() > 0.5
@@ -179,7 +201,7 @@ export async function importPreferences() {
 		let personData = people.find((v) => v.email === entry['Email Address']);
 		if (!personData) continue;
 		let preferences: Preferences = {
-			doPits: entry['Are you interested in being on pit crew?'] == 'Yes' ? 1 : 0,
+			doPits: entry['Are you interested in being on pit crew?'] == 'Yes' ? true : false,
 			doMedia: entry['What other roles are you interested in?'].includes('Media') ? true : false,
 			doJournalism: entry['What other roles are you interested in?'].includes('Journalism')
 				? true
@@ -319,14 +341,16 @@ export async function removeCFG(key: string) {
 	return db.prepare('DELETE FROM timingCfg WHERE key = ?').run(key);
 }
 
-export async function isValidSession(sessionID: string): Promise<boolean> {
+export async function isValidSession(sessionID: string, sessionIdentity: string): Promise<boolean> {
 	const res =
-		((await db
-			.prepare('SELECT session_expire FROM sessions WHERE session_id = ?')
-			.get(sessionID)) as { session_expire: number }) || null;
+		((await db.prepare('SELECT * FROM sessions WHERE session_id = ?').get(sessionID)) as {
+			session_expire: number;
+			session_identity: string;
+		}) || null;
 	if (!res) return false;
 	const expires = res.session_expire ?? null;
-	if (expires) {
+	const identity = res.session_identity ?? null;
+	if (expires && identity && identity == sessionIdentity) {
 		if (expires > Date.now()) return true;
 		else {
 			console.log('removing session');
@@ -336,11 +360,20 @@ export async function isValidSession(sessionID: string): Promise<boolean> {
 	} else return false;
 }
 
-export async function newSession(): Promise<string> {
+export async function identityFromSessionID(sessionID: string) {
+	const res = await db.prepare('SELECT * FROM sessions WHERE session_id = ?').get(sessionID);
+	return res?.session_identity ?? null;
+}
+
+export async function newSession(identity: string): Promise<string> {
 	const sessionID = Bun.randomUUIDv7();
 	const sessionExpire = Date.now() + 60 * 60 * 1000; // expires 1hr after creation
-	await db.prepare('INSERT INTO sessions VALUES (?, ?)').run(sessionID, sessionExpire);
+	await db.prepare('INSERT INTO sessions VALUES (?, ?, ?)').run(sessionID, sessionExpire, identity);
 	return sessionID;
+}
+
+export async function deleteSession(sessionID: string) {
+	await db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionID);
 }
 
 export async function clearSessions() {

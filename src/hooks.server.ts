@@ -12,10 +12,10 @@ export const init: ServerInit = async () => {
 
 export const handle: Handle = async ({ event, resolve }) => {
 	if (event.url.pathname != '/admin') return await resolve(event);
-	const sessionID = event.cookies.get('session');
+	const sessionID = event.cookies.get('adminSession');
 	if (!sessionID) return redirect(303, '/admin/login');
 	event.locals.sessionID = sessionID;
-	const isValid = await isValidSession(sessionID);
+	const isValid = await isValidSession(sessionID, 'admin');
 	if (!isValid) return redirect(303, '/admin/login');
 	return await resolve(event);
 };

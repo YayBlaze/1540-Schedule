@@ -216,11 +216,10 @@ export async function updateSlotTiming() {
 }
 
 export async function generateSlotsNexus() {
-	await fetchData();
 	await clearSlots();
 	const matches = await ourMatches();
-	const event = await getEventTimes();
 	if (!matches || matches.length < 1) return await generateSlotsDummy();
+	const event = await getEventTimes();
 	const lunchTimes = await getLunchTimes();
 	const { dayStart, dayEnd } = await getEventTimes();
 	const matchesToday = matches.filter(
