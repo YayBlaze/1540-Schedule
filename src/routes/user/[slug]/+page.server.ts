@@ -1,7 +1,9 @@
 import {
 	getNamesInRole,
+	getPeople,
 	getPerson,
 	getPersonSchedule,
+	getSchedule,
 	isValidSession,
 	updatePerson
 } from '$lib/db';
@@ -19,16 +21,27 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 	const isAdmin = await isValidSession(adminSession, 'admin');
 	if (!isPerson && !isAdmin) await redirect(303, '/');
 
-	const personData = await getPerson(personUUID);
+	const people = await getPeople();
+	const personData = people.find((person) => person.uuid === personUUID);
 	if (!personData) return redirect(303, '/auth');
 
+	let peopleLookUp: any = {};
+	for (let person of people) {
+		peopleLookUp[person.uuid] = person.displayName;
+	}
+
 	const slots = await getSlots();
-	const personScheduleRaw = await getPersonSchedule(personData.uuid);
-	let personSchedule = Object.keys(personScheduleRaw)
-		.filter(
-			(key) => key.startsWith('slot') && parseInt(key.slice(-1)) <= (slots.at(-1)?.slotNumber ?? 0)
-		)
-		.map((key) => personScheduleRaw[key as keyof typeof personScheduleRaw] as Role);
+	let scheduleRAW = await getSchedule();
+	let schedule = scheduleRAW.map((row) => ({
+		name: peopleLookUp[row.personUUID],
+		uuid: row.personUUID,
+		slots: Object.keys(row)
+			.filter(
+				(key) =>
+					key.startsWith('slot') && parseInt(key.slice(-1)) <= (slots.at(-1)?.slotNumber ?? 0)
+			)
+			.map((key) => row[key as keyof typeof row] as Role)
+	}));
 
 	let roles: Record<string, string[]>[] = [];
 	for (let slot of slots) {
@@ -46,7 +59,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 		});
 	}
 
-	return { personData, personSchedule, slots, roles };
+	return { personData, people, schedule, slots, roles };
 };
 
 export const actions = {

@@ -1,19 +1,43 @@
 <script lang="ts">
-	import { Toggle, Input, Label, Tooltip, Button, Helper, PhoneInput } from 'flowbite-svelte';
+	import { Toggle, Input, Label, Tooltip, Button, Helper } from 'flowbite-svelte';
 	import { goto } from '$app/navigation';
 	import { team } from '$lib/config';
 	import type { PageProps } from './$types';
-	import { Role, RolePool } from '$lib/types';
+	import { Role, RolePool, type PersonData } from '$lib/types';
 
 	let { data }: PageProps = $props();
+	let people = $derived(data.people);
 	// svelte-ignore state_referenced_locally
 	let personData = $state(data.personData);
 	let personDataString = $derived(JSON.stringify(personData));
 	// svelte-ignore state_referenced_locally
 	const ogPersonData = structuredClone(data.personData);
-	let personSchedule = $derived(data.personSchedule);
+	let schedule = $derived(data.schedule);
 	let slots = $derived(data.slots);
 	let roles = $derived(data.roles);
+
+	let tradingPerson: PersonData | undefined = $state();
+	let tradingSlot:
+		| {
+				slotNumber: number;
+				startTimestamp: number;
+				endTimestamp: number;
+				startLabel: string;
+				endLabel: string;
+				allowUpdate: boolean;
+		  }
+		| undefined = $state();
+	let tradingPersonRole = $derived.by(() => {
+		let fullSchedule = schedule.find((v) => v.uuid === tradingPerson?.uuid)?.slots;
+		console.log(fullSchedule);
+		if (!fullSchedule || !tradingSlot) return undefined;
+		return fullSchedule[tradingSlot.slotNumber - 1];
+	});
+	let userRole = $derived.by(() => {
+		let fullSchedule = schedule.find((v) => v.uuid === personData.uuid)?.slots;
+		if (!fullSchedule || !tradingSlot) return undefined;
+		return fullSchedule[tradingSlot.slotNumber - 1];
+	});
 
 	let hasUpdated = $derived.by(() => JSON.stringify(ogPersonData) !== JSON.stringify(personData));
 
@@ -67,11 +91,12 @@
 		return string;
 	}
 
-	function calcRoleTime(role: Role) {
+	function calcRoleTime(role: Role, name: string) {
+		const personSchedule = schedule.find((v) => v.name == name);
 		if (!personSchedule) return 0;
 		let correct = [];
-		for (let i = 0; i < personSchedule.length; i++) {
-			let slot = personSchedule[i];
+		for (let i = 0; i < personSchedule.slots.length; i++) {
+			let slot = personSchedule.slots[i];
 			if ((slot as Role) === (role as Role)) correct.push(slots[i]);
 		}
 		let totalMS = 0;
@@ -86,6 +111,8 @@
 			? new Date(ms).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' })
 			: 'Never';
 	};
+
+	async function tradeRequest() {}
 </script>
 
 <nav class="mb-5 flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
@@ -157,7 +184,7 @@
 			</thead>
 			<tbody>
 				<tr>
-					{#each personSchedule as slot}
+					{#each schedule.find((person) => person.uuid === personData.uuid)?.slots as slot}
 						{#if slot}
 							<td
 								class="border border-(--black) p-2 text-center"
@@ -177,7 +204,7 @@
 		<div class="flex items-center gap-2 p-3">
 			Times:
 			{#each Object.keys(roles[0]) as role}
-				{#if calcRoleTime(role as Role) != '0s'}
+				{#if calcRoleTime(role as Role, personData.displayName) != '0s'}
 					<div
 						style="background-color: var({getColor(role as Role)}); color: var({(role as Role) ===
 							Role.Strategy || (role as Role) === Role.Open
@@ -185,64 +212,68 @@
 							: '--black'});"
 						class="nunito flex gap-1.5 rounded-md p-1 font-medium"
 					>
-						<p>{role}: {calcRoleTime(role as Role)}</p>
+						<p>{role}: {calcRoleTime(role as Role, personData.displayName)}</p>
 					</div>
 				{/if}
 			{/each}
 		</div>
 	</div>
 	<div class="m-auto flex h-fit w-[95%] items-stretch justify-between gap-5">
-		<div class="item flex flex-wrap gap-2">
-			<div class="w-70">
-				<Label for="first_name">First name</Label>
-				<Input
-					type="text"
-					id="first_name"
-					placeholder="John"
-					required
-					class="nunito"
-					bind:value={personData.firstName}
-				/>
-			</div>
-			<div class="w-70">
-				<Label for="last_name">Last name</Label>
-				<Input
-					type="text"
-					id="last_name"
-					placeholder="Doe"
-					required
-					class="nunito"
-					bind:value={personData.lastName}
-				/>
-			</div>
-			<div class="w-70">
-				<Label for="email">Email address</Label>
-				<Input
-					aria-describedby="helper-text-explanation"
-					type="email"
-					id="email"
-					placeholder="john.doe@company.com"
-					required
-					class="nunito"
-					bind:value={personData.email}
-				/>
-				<Helper class="mt-2 text-xs">Used the same email as the roles google form</Helper>
-			</div>
-			<div class="w-70">
-				<Label for="phone">Phone Number</Label>
-				<Input
-					type="number"
-					id="phone"
-					aria-describedby="helper-text-explanation"
-					placeholder="1234567890"
-					required
-					bind:value={personData.phone}
-				/>
-				<Helper class="mt-2 text-xs">Used for SMS notifications upon new role</Helper>
+		<div class="item">
+			<h1 class="text-2xl">Personal Information</h1>
+			<div class="flex flex-wrap gap-2">
+				<div class="w-70">
+					<Label for="first_name">First name</Label>
+					<Input
+						type="text"
+						id="first_name"
+						placeholder="John"
+						required
+						class="nunito"
+						bind:value={personData.firstName}
+					/>
+				</div>
+				<div class="w-70">
+					<Label for="last_name">Last name</Label>
+					<Input
+						type="text"
+						id="last_name"
+						placeholder="Doe"
+						required
+						class="nunito"
+						bind:value={personData.lastName}
+					/>
+				</div>
+				<div class="w-70">
+					<Label for="email">Email address</Label>
+					<Input
+						aria-describedby="helper-text-explanation"
+						type="email"
+						id="email"
+						placeholder="john.doe@company.com"
+						required
+						class="nunito"
+						bind:value={personData.email}
+					/>
+					<Helper class="mt-2 text-xs">Used the same email as the roles google form</Helper>
+				</div>
+				<div class="w-70">
+					<Label for="phone">Phone Number</Label>
+					<Input
+						type="number"
+						id="phone"
+						aria-describedby="helper-text-explanation"
+						placeholder="1234567890"
+						required
+						bind:value={personData.phone}
+					/>
+					<Helper class="mt-2 text-xs">Used for SMS notifications upon new role</Helper>
+				</div>
 			</div>
 		</div>
 		<div class="item flex flex-col gap-2">
-			<p class="nunito">Note: will not update schedule until the next generation</p>
+			<h1 class="text-2xl">Schedule Preferences</h1>
+			<p class="nunito text-(--grey)">Note: will not update schedule until the next generation</p>
 			<Toggle
 				bind:checked={personData.preferences.doPits}
 				size="large"
@@ -269,6 +300,69 @@
 			>
 		</div>
 	</div>
+	<div class="item m-auto">
+		<h1 class="text-2xl">Trade Schedule Slots</h1>
+		<div class="flex items-center gap-2">
+			<p class="nunito">Trading With:</p>
+			<select class="w-40" bind:value={tradingPerson}>
+				{#each people as person}
+					{#if person.attendingEvent}
+						<option value={person}>{person.displayName}</option>
+					{/if}
+				{/each}
+			</select>
+			<p class="nunito">Trading Slot:</p>
+			<select class="w-40" bind:value={tradingSlot}>
+				{#each slots as slot}
+					<option value={slot}>
+						{#if slot.startLabel != ''}
+							<p>{slot.startLabel}-{slot.endLabel}</p>
+						{:else}
+							<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p>
+						{/if}
+					</option>
+				{/each}
+			</select>
+			<p class="nunito">
+				({msToRelative(
+					(tradingSlot?.endTimestamp ?? slots[0].endTimestamp) -
+						(tradingSlot?.startTimestamp ?? slots[0].startTimestamp)
+				)})
+			</p>
+		</div>
+		<div class="flex items-center gap-4">
+			<div>
+				<h1 class="text-xl">You have</h1>
+				<div
+					style="background-color: var({getColor(
+						userRole as Role
+					)}); color: var({(userRole as Role) === Role.Strategy || (userRole as Role) === Role.Open
+						? '--white'
+						: '--black'});"
+					class="nunito rounded-md p-1 text-center font-medium"
+				>
+					<p>{userRole}</p>
+				</div>
+			</div>
+			<div>
+				<h1 class="text-xl">{tradingPerson?.displayName} has</h1>
+				<div
+					style="background-color: var({getColor(
+						tradingPersonRole as Role
+					)}); color: var({(tradingPersonRole as Role) === Role.Strategy ||
+					(tradingPersonRole as Role) === Role.Open
+						? '--white'
+						: '--black'});"
+					class="nunito rounded-md p-1 text-center font-medium"
+				>
+					<p>{tradingPersonRole}</p>
+				</div>
+			</div>
+			<button class="button-primary mt-3" type="button" onclick={tradeRequest}
+				>Submit Trade Request</button
+			>
+		</div>
+	</div>
 
 	{#if hasUpdated}
 		<div class="fixed bottom-10 left-80 w-[50%] rounded-2xl border bg-(--black2) p-2 text-center">
@@ -288,5 +382,30 @@
 		width: 95%;
 		border: 1px solid var(--white);
 		border-radius: 20px;
+	}
+
+	select {
+		height: fit-content;
+		border: 1px solid var(--grey);
+		border-radius: 0.375rem;
+		padding: 0.25rem;
+		color: var(--white);
+		background-color: #3c3c3c;
+	}
+
+	.button-primary {
+		height: fit-content;
+		border: 1px solid var(--white);
+		border-radius: 10px;
+		background-color: var(--white);
+		padding: 0.5rem;
+		color: var(--black);
+		transition-property: color, background-color;
+		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+		transition-duration: 200ms;
+	}
+	.button-primary:hover {
+		background-color: var(--black2);
+		color: var(--white);
 	}
 </style>
