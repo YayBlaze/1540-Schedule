@@ -136,43 +136,47 @@
 	<h1 class="m-auto text-center text-4xl text-(--red)">Viewing as Admin</h1>
 {/if}
 
-<div class="flex items-center justify-center gap-2">
-	<h1 class="text-2xl">Welcome {personData?.displayName}</h1>
-	<button class="button-primary" onclick={() => goto(`/user/${personData?.uuid}`)}
-		>View Person Page</button
-	>
-</div>
-
-<div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
-	<div class="flex flex-col items-center justify-center gap-2">
-		<p>Current Slot: {currentSlot.label}</p>
-		{#if currentRole}
-			<p style="color: var({currentRole != Role.Open ? getColor(currentRole) : 'white'}">
-				Current Role: {currentRole}
-			</p>
-		{/if}
+{#if personData}
+	<div class="flex items-center justify-center gap-2">
+		<h1 class="text-2xl">Welcome {personData?.displayName}</h1>
+		<button class="button-primary" onclick={() => goto(`/user/${personData?.uuid}`)}
+			>View Person Page</button
+		>
 	</div>
-	{#if nextSlot}
-		<div class="flex flex-col items-center justify-center gap-2 border-l-2 border-(--white) pl-2">
-			<p>
-				{#if nextSlot.startLabel != 'None'}
-					Next Slot: {nextSlot.startLabel != ''
-						? nextSlot.startLabel
-						: msToTime(nextSlot.slotNumber)}-{nextSlot.endLabel != ''
-						? nextSlot.endLabel
-						: msToTime(nextSlot.endTimestamp)} in {timeToNextSlot}
-				{:else}
-					Next Slot: None
-				{/if}
-			</p>
-			{#if nextRole}
-				<p style="color: var({nextRole != Role.Open ? getColor(nextRole) : 'white'}">
-					Next Role: {nextRole}
+{/if}
+
+{#if visible || isAdmin}
+	<div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
+		<div class="flex flex-col items-center justify-center gap-2">
+			<p>Current Slot: {currentSlot.label}</p>
+			{#if currentRole}
+				<p style="color: var({currentRole != Role.Open ? getColor(currentRole) : 'white'}">
+					Current Role: {currentRole}
 				</p>
 			{/if}
 		</div>
-	{/if}
-</div>
+		{#if nextSlot}
+			<div class="flex flex-col items-center justify-center gap-2 border-l-2 border-(--white) pl-2">
+				<p>
+					{#if nextSlot.startLabel != 'None'}
+						Next Slot: {nextSlot.startLabel != ''
+							? nextSlot.startLabel
+							: msToTime(nextSlot.slotNumber)}-{nextSlot.endLabel != ''
+							? nextSlot.endLabel
+							: msToTime(nextSlot.endTimestamp)} in {timeToNextSlot}
+					{:else}
+						Next Slot: None
+					{/if}
+				</p>
+				{#if nextRole}
+					<p style="color: var({nextRole != Role.Open ? getColor(nextRole) : 'white'}">
+						Next Role: {nextRole}
+					</p>
+				{/if}
+			</div>
+		{/if}
+	</div>
+{/if}
 
 {#if (visible || isAdmin) && view == 'person'}
 	<div class="m-auto mb-10 size-fit overflow-x-scroll rounded-xl bg-(--black2) p-5">

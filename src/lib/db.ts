@@ -169,6 +169,16 @@ export async function getPerson(personUUID: string): Promise<PersonData | null> 
 	};
 }
 
+export async function getPersonFromEmail(email: string): Promise<PersonData | null> {
+	const res = db.prepare('SELECT * FROM people WHERE email = ?').get(email) as PersonData;
+	if (!res) return null;
+	return {
+		...res,
+		rolePool: res.rolePool as RolePool,
+		preferences: JSON.parse(res.preferences as unknown as string)
+	};
+}
+
 export async function updatePreferences(personUUID: string, preferences: Preferences) {
 	await setPersonStats(personUUID, true);
 	return db

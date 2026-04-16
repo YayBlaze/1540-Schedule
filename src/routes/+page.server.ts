@@ -15,9 +15,8 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, cookies }) => {
 	let sessionID = cookies.get('session');
-	if (!sessionID) return redirect(303, '/login');
-	let personUUID = await identityFromSessionID(sessionID);
-	if (!personUUID) return redirect(303, '/login');
+	if (!sessionID) return redirect(303, '/auth');
+	let personUUID: string | null = await identityFromSessionID(sessionID);
 	const dbTimings = await getCFG();
 	const scheduleVisible =
 		dbTimings.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;

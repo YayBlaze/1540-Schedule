@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 	if (!isPerson && !isAdmin) await redirect(303, '/');
 
 	const personData = await getPerson(personUUID);
-	if (!personData) return redirect(303, '/login');
+	if (!personData) return redirect(303, '/auth');
 
 	const slots = await getSlots();
 	const personScheduleRaw = await getPersonSchedule(personData.uuid);
