@@ -1,4 +1,5 @@
-import { veracross, TOKEN_URL, USR_INFO_URL } from '$lib/auth';
+import { oAuthCallbackURL, oAuthClientID, oAuthClientSecret } from '$env/static/private';
+import { TOKEN_URL, USR_INFO_URL } from '$lib/auth';
 import { getPersonFromEmail, newSession } from '$lib/db';
 import { redirect, type RequestHandler } from '@sveltejs/kit';
 
@@ -15,17 +16,32 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		return new Response('Invalid state', { status: 400 });
 	}
 
-	const tokens = await veracross.validateAuthorizationCode(TOKEN_URL, code, null);
+	let body = new URLSearchParams({
+		grant_type: 'authorization_code',
+		client_id: oAuthClientID,
+		client_secret: oAuthClientSecret,
+		code,
+		redirect_uri: oAuthCallbackURL
+	});
 
-	const res = await fetch(USR_INFO_URL, {
+	let res = await fetch(TOKEN_URL, {
+		method: 'POST',
+		body,
 		headers: {
-			Authorization: `Bearer ${tokens.accessToken()}`
+			'Content-Type': 'application/x-www-form-urlencoded'
+		}
+	});
+	let tokens = await res.json();
+
+	res = await fetch(USR_INFO_URL, {
+		headers: {
+			Authorization: `Bearer ${tokens.access_token}`,
+			'Content-Type': 'application/x-www-form-urlencoded'
 		}
 	});
 
 	const user = await res.json();
 	const username = user.preferred_username;
-	console.log(username);
 	const person = await getPersonFromEmail(username);
 	if (!person) return new Response('Invalid user', { status: 400 });
 
