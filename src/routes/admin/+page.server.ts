@@ -162,6 +162,7 @@ export const actions = {
 		const endLabel = data.get('endLabel')?.toString();
 		const endTimeString = data.get('endTimestamp')?.toString();
 		const allowUpdate = data.get('allowUpdates')?.toString() === 'on';
+		const doScouting = data.get('doScouting')?.toString() === 'on';
 		if (!slotString || !startTimeString || !endTimeString) return fail(400);
 		let slotNumber = parseInt(slotString);
 		if (!startLabel || !endLabel) {
@@ -177,7 +178,8 @@ export const actions = {
 				startTimestamp,
 				endLabel,
 				endTimestamp,
-				allowUpdate
+				allowUpdate,
+				doScouting
 			});
 		}
 	},

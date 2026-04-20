@@ -3,6 +3,7 @@
 	import type { PageProps } from './$types';
 	import { RolePool } from '$lib/types';
 	import { team } from '$lib/config';
+	import { Toggle } from 'flowbite-svelte';
 	let { data }: PageProps = $props();
 
 	var visible = $derived(data.scheduleVisible);
@@ -20,7 +21,8 @@
 			startTimestamp: 0,
 			endLabel: '',
 			endTimestamp: 0,
-			allowUpdate: true
+			allowUpdate: true,
+			doScouting: true
 		});
 	}
 	var { lunchStart, lunchEnd, dayStart, dayEnd } = $derived(times);
@@ -275,7 +277,7 @@
 		<div class="flex w-full flex-wrap items-center gap-4">
 			{#each slotsToEdit as slot}
 				<form
-					class="flex h-73 w-[30%] flex-col items-center justify-around gap-2 rounded-2xl border border-(--white) p-2"
+					class="flex h-82 w-[30%] flex-col items-center justify-around gap-2 rounded-2xl border border-(--white) p-2"
 					method="post"
 					action="?/editSlot"
 				>
@@ -308,15 +310,12 @@
 						placeholder="End Timestamp"
 						value={toDatetimeLocal(slot.endTimestamp)}
 					/>
-					<div class="flex justify-center gap-2">
-						<input
-							type="checkbox"
-							name="allowUpdates"
-							id="allowUpdates"
-							checked={slot.allowUpdate}
-						/>
-						<label for="allowUpdates">Allow auto updates from nexus?</label>
-					</div>
+					<Toggle checked={slot.allowUpdate} size="small" color="green" class="nunito text-xl"
+						>Allow auto updates from nexus</Toggle
+					>
+					<Toggle checked={slot.doScouting} size="small" color="green" class="nunito text-xl"
+						>Assign scouting during slot</Toggle
+					>
 					<button class="button-primary" id="submit">Save</button>
 				</form>
 			{/each}

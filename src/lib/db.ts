@@ -1,4 +1,11 @@
-import { Role, RolePool, type PersonData, type personSchedule, type Preferences } from './types';
+import {
+	Role,
+	RolePool,
+	type PersonData,
+	type personSchedule,
+	type Preferences,
+	type slotData
+} from './types';
 import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 
@@ -49,7 +56,8 @@ export async function initDB() {
 			endTimestamp LONG,
 			startLabel TEXT,
 			endLabel TEXT,
-			allowUpdate BOOLEAN
+			allowUpdate BOOLEAN,
+			doScouting BOOLEAN
 		)
 	`);
 
@@ -297,34 +305,19 @@ export async function getNamesInRole(role: Role, slotNum: number): Promise<strin
 	return Promise.all(names);
 }
 
-export async function setSlot(data: {
-	slotNumber: number;
-	startTimestamp: number;
-	endTimestamp: number;
-	startLabel: string;
-	endLabel: string;
-	allowUpdate: boolean;
-}) {
-	db.prepare('INSERT OR REPLACE INTO slots VALUES (?, ?, ?, ?, ?, ?)').run(
+export async function setSlot(data: slotData) {
+	db.prepare('INSERT OR REPLACE INTO slots VALUES (?, ?, ?, ?, ?, ?, ?)').run(
 		data.slotNumber,
 		data.startTimestamp,
 		data.endTimestamp,
 		data.startLabel,
 		data.endLabel,
-		data.allowUpdate
+		data.allowUpdate,
+		data.doScouting
 	);
 }
 
-export async function setSlots(
-	data: {
-		slotNumber: number;
-		startTimestamp: number;
-		endTimestamp: number;
-		startLabel: string;
-		endLabel: string;
-		allowUpdate: boolean;
-	}[]
-) {
+export async function setSlots(data: slotData[]) {
 	await clearSlots();
 	data.forEach((v) => {
 		setSlot(v);
@@ -332,14 +325,7 @@ export async function setSlots(
 }
 
 export async function getSlots() {
-	return db.prepare('SELECT * FROM slots').all() as {
-		slotNumber: number;
-		startTimestamp: number;
-		endTimestamp: number;
-		startLabel: string;
-		endLabel: string;
-		allowUpdate: boolean;
-	}[];
+	return db.prepare('SELECT * FROM slots').all() as slotData[];
 }
 
 export async function clearSlots() {

@@ -34,6 +34,16 @@ export type personSchedule = {
 	slot11: Role;
 };
 
+export type slotData = {
+	slotNumber: number;
+	startTimestamp: number;
+	endTimestamp: number;
+	startLabel: string;
+	endLabel: string;
+	allowUpdate: boolean;
+	doScouting: boolean;
+};
+
 export enum Role {
 	Open = 'Open',
 	PitLead = 'Pit Lead',
