@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { Toggle, Input, Label, Tooltip, Button, Helper } from 'flowbite-svelte';
+	import { Toggle, Input, Label, Tooltip, Button, Helper, Alert } from 'flowbite-svelte';
 	import { goto } from '$app/navigation';
 	import { team } from '$lib/config';
 	import type { PageProps } from './$types';
 	import { Role, RolePool, type PersonData } from '$lib/types';
+	import { CheckCircleOutline } from 'flowbite-svelte-icons';
 
 	let { data }: PageProps = $props();
 	let people = $derived(data.people);
@@ -15,6 +16,10 @@
 	let schedule = $derived(data.schedule);
 	let slots = $derived(data.slots);
 	let roles = $derived(data.roles);
+	let showSuccessMsg = $derived(data.showSuccess);
+
+	let incomingTradeRequest = $derived(data.tradeRequestData);
+	let incomingTradeSlot = $derived(slots[(incomingTradeRequest.slot ?? 1) - 1]);
 
 	let tradingPerson: PersonData | undefined = $state();
 	let tradingSlot:
@@ -29,7 +34,6 @@
 		| undefined = $state();
 	let tradingPersonRole = $derived.by(() => {
 		let fullSchedule = schedule.find((v) => v.uuid === tradingPerson?.uuid)?.slots;
-		console.log(fullSchedule);
 		if (!fullSchedule || !tradingSlot) return undefined;
 		return fullSchedule[tradingSlot.slotNumber - 1];
 	});
@@ -112,7 +116,52 @@
 			: 'Never';
 	};
 
-	async function tradeRequest() {}
+	async function tradeRequest() {
+		const res = await fetch('/api/submitTrade', {
+			method: 'POST',
+			body: JSON.stringify({
+				tradeInit: personData.uuid,
+				traderReceive: tradingPerson?.uuid,
+				slot: tradingSlot?.slotNumber
+			})
+		});
+		if ((await res.json()).status == 200) {
+			showSuccessMsg = true;
+			setTimeout(() => (showSuccessMsg = false), 5 * 1000);
+		}
+		tradingPerson = undefined;
+		tradingSlot = undefined;
+	}
+
+	async function declineTradeRequest() {
+		const res = await fetch('/api/declineTrade', {
+			method: 'POST',
+			body: JSON.stringify({
+				uuid: incomingTradeRequest.uuid
+			})
+		});
+		if ((await res.json()).status == 200) {
+			showSuccessMsg = true;
+			setTimeout(() => (showSuccessMsg = false), 5 * 1000);
+			incomingTradeRequest = {
+				uuid: null,
+				person: null,
+				slot: null,
+				incomingRole: null,
+				outgoingRole: null
+			};
+		}
+	}
+
+	async function acceptTradeRequest() {
+		await fetch('/api/acceptTrade', {
+			method: 'POST',
+			body: JSON.stringify({
+				uuid: incomingTradeRequest.uuid
+			})
+		});
+		goto(`/user/${personData.uuid}?success=true`);
+	}
 </script>
 
 <nav class="mb-5 flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
@@ -267,7 +316,9 @@
 						required
 						bind:value={personData.phone}
 					/>
-					<Helper class="mt-2 text-xs">Used for SMS notifications upon new role</Helper>
+					<Helper class="mt-2 text-xs"
+						>Used for SMS notifications upon new role (currently in development)</Helper
+					>
 				</div>
 			</div>
 		</div>
@@ -301,66 +352,102 @@
 		</div>
 	</div>
 	<div class="item m-auto">
-		<h1 class="text-2xl">Trade Schedule Slots</h1>
-		<div class="flex items-center gap-2">
-			<p class="nunito">Trading With:</p>
-			<select class="w-40" bind:value={tradingPerson}>
-				{#each people as person}
-					{#if person.attendingEvent}
-						<option value={person}>{person.displayName}</option>
-					{/if}
-				{/each}
-			</select>
-			<p class="nunito">Trading Slot:</p>
-			<select class="w-40" bind:value={tradingSlot}>
-				{#each slots as slot}
-					<option value={slot}>
-						{#if slot.startLabel != ''}
-							<p>{slot.startLabel}-{slot.endLabel}</p>
-						{:else}
-							<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p>
+		<h1 class="text-2xl" id="trade">
+			{incomingTradeRequest.uuid ? 'Incoming Trade Request' : 'Trade Schedule Slots'}
+		</h1>
+		{#if !incomingTradeRequest.uuid}
+			<div class="flex items-center gap-2">
+				<p class="nunito">Trading With:</p>
+				<input type="hidden" name="tradingInit" value={personData} />
+				<select class="w-40" bind:value={tradingPerson} name="tradingReceive">
+					{#each people as person}
+						{#if person.attendingEvent && person.uuid != personData.uuid}
+							<option value={person}>{person.displayName}</option>
 						{/if}
-					</option>
-				{/each}
-			</select>
-			<p class="nunito">
-				({msToRelative(
-					(tradingSlot?.endTimestamp ?? slots[0].endTimestamp) -
-						(tradingSlot?.startTimestamp ?? slots[0].startTimestamp)
-				)})
-			</p>
-		</div>
+					{/each}
+				</select>
+				<p class="nunito">Trading Slot:</p>
+				<select class="w-40" bind:value={tradingSlot} name="slot">
+					{#each slots as slot}
+						<option value={slot}>
+							{#if slot.startLabel != ''}
+								<p>{slot.startLabel}-{slot.endLabel}</p>
+							{:else}
+								<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p>
+							{/if}
+						</option>
+					{/each}
+				</select>
+				<p class="nunito">
+					({msToRelative(
+						(tradingSlot?.endTimestamp ?? slots[0].endTimestamp) -
+							(tradingSlot?.startTimestamp ?? slots[0].startTimestamp)
+					)})
+				</p>
+			</div>
+		{:else}
+			<div class="flex items-center gap-2">
+				<div class="flex flex-col justify-center text-center">
+					<p class="nunito font-bold!">Incoming Trade From</p>
+					<p class="nunito">{incomingTradeRequest.person}</p>
+				</div>
+				<div class="flex flex-col justify-center text-center">
+					<p class="nunito font-bold!">Trading Slot</p>
+					<p class="nunito">
+						{#if incomingTradeSlot.startLabel != ''}
+							{incomingTradeSlot.startLabel}-{incomingTradeSlot.endLabel}
+						{/if}
+						{msToTime(incomingTradeSlot.startTimestamp)}-{msToTime(incomingTradeSlot.endTimestamp)}
+						({msToRelative(
+							(tradingSlot?.endTimestamp ?? slots[0].endTimestamp) -
+								(tradingSlot?.startTimestamp ?? slots[0].startTimestamp)
+						)})
+					</p>
+				</div>
+			</div>
+		{/if}
 		<div class="flex items-center gap-4">
 			<div>
 				<h1 class="text-xl">You have</h1>
 				<div
 					style="background-color: var({getColor(
-						userRole as Role
-					)}); color: var({(userRole as Role) === Role.Strategy || (userRole as Role) === Role.Open
+						incomingTradeRequest.outgoingRole ?? (userRole as Role)
+					)}); color: var({(incomingTradeRequest.outgoingRole ?? (userRole as Role)) ===
+						Role.Strategy || (incomingTradeRequest.outgoingRole ?? (userRole as Role)) === Role.Open
 						? '--white'
 						: '--black'});"
 					class="nunito rounded-md p-1 text-center font-medium"
 				>
-					<p>{userRole}</p>
+					<p>{incomingTradeRequest.outgoingRole ?? userRole}</p>
 				</div>
 			</div>
 			<div>
-				<h1 class="text-xl">{tradingPerson?.displayName} has</h1>
+				<h1 class="text-xl">{incomingTradeRequest.person ?? tradingPerson?.displayName} has</h1>
 				<div
 					style="background-color: var({getColor(
-						tradingPersonRole as Role
-					)}); color: var({(tradingPersonRole as Role) === Role.Strategy ||
-					(tradingPersonRole as Role) === Role.Open
+						incomingTradeRequest.incomingRole ?? (tradingPersonRole as Role)
+					)}); color: var({(incomingTradeRequest.incomingRole ?? (tradingPersonRole as Role)) ===
+						Role.Strategy ||
+					(incomingTradeRequest.incomingRole ?? (tradingPersonRole as Role)) === Role.Open
 						? '--white'
 						: '--black'});"
 					class="nunito rounded-md p-1 text-center font-medium"
 				>
-					<p>{tradingPersonRole}</p>
+					<p>{incomingTradeRequest.incomingRole ?? tradingPersonRole}</p>
 				</div>
 			</div>
-			<button class="button-primary mt-3" type="button" onclick={tradeRequest}
-				>Submit Trade Request</button
-			>
+			{#if !incomingTradeRequest.uuid}
+				<button class="button-primary mt-3" type="button" onclick={tradeRequest}
+					>Submit Trade Request</button
+				>
+			{:else}
+				<button type="button" class="button-primary" onclick={acceptTradeRequest}
+					>Accept Trade</button
+				>
+				<button type="button" class="button-secondary" onclick={declineTradeRequest}
+					>Deny Trade</button
+				>
+			{/if}
 		</div>
 	</div>
 
@@ -374,6 +461,15 @@
 		</div>
 	{/if}
 </form>
+
+{#if showSuccessMsg}
+	<div class="fixed bottom-2 w-full">
+		<Alert color="green" dismissable class="m-auto w-100">
+			{#snippet icon()}<CheckCircleOutline class="h-5 w-5" />{/snippet}
+			Success!
+		</Alert>
+	</div>
+{/if}
 
 <style>
 	.item {
@@ -407,5 +503,21 @@
 	.button-primary:hover {
 		background-color: var(--black2);
 		color: var(--white);
+	}
+
+	.button-secondary {
+		height: fit-content;
+		border-radius: 10px;
+		background-color: #3c3c3c;
+		padding: 0.5rem;
+		color: var(--white);
+		font-size: 0.875rem;
+		transition-property: color, background-color;
+		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+		transition-duration: 200ms;
+	}
+	.button-secondary:hover {
+		background-color: var(--white);
+		color: var(--black2);
 	}
 </style>

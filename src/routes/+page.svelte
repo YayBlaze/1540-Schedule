@@ -4,6 +4,8 @@
 	import { onDestroy, onMount } from 'svelte';
 	import type { PageProps } from './$types';
 	import { team } from '$lib/config';
+	import { Button, Toast } from 'flowbite-svelte';
+	import { ExclamationCircleSolid } from 'flowbite-svelte-icons';
 
 	let { data }: PageProps = $props();
 
@@ -20,6 +22,7 @@
 	let personData = $derived(currentPerson.data);
 	let currentRole = $derived(currentPerson.currentRole);
 	let nextRole = $derived(currentPerson.nextRole);
+	let tradingRequestData = $derived(data.tradeRequestData);
 
 	function getColor(role: Role) {
 		switch (role) {
@@ -136,6 +139,29 @@
 	<h1 class="m-auto text-center text-4xl text-(--red)">Viewing as Admin</h1>
 {/if}
 
+{#if tradingRequestData?.uuid}
+	<Toast align={false} class="fixed right-5 bg-(--black2) dark:bg-(--black2)">
+		{#snippet icon()}
+			<ExclamationCircleSolid class="h-6 w-6" />
+		{/snippet}
+
+		<span class="font-semibold text-gray-900 dark:text-white"
+			>Trade request from {tradingRequestData.person}</span
+		>
+		<div class="mt-3">
+			<div class="mb-2 text-sm font-normal"></div>
+			<div class="grid grid-cols-2 gap-2">
+				<Button
+					size="xs"
+					class="w-full"
+					color="green"
+					onclick={() => goto(`/user/${personData?.uuid}#trade`)}>View</Button
+				>
+			</div>
+		</div>
+	</Toast>
+{/if}
+
 {#if personData}
 	<div class="flex items-center justify-center gap-2">
 		<h1 class="text-2xl">Welcome {personData?.displayName}</h1>
@@ -210,7 +236,6 @@
 								? '--yellow'
 								: '--white'}); font-weight: {personData?.displayName == person.name ? 900 : 400}"
 							onclick={() => {
-								console.log(isAdmin);
 								if (isAdmin) goto(`/user/${person.uuid}`);
 							}}>{person.name}</td
 						>

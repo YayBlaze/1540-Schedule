@@ -7,7 +7,8 @@ import {
 	getPerson,
 	getCFG,
 	isValidSession,
-	identityFromSessionID
+	identityFromSessionID,
+	getIncomingRequests
 } from '$lib/db';
 import { Role, type PersonData } from '$lib/types';
 import { redirect } from '@sveltejs/kit';
@@ -16,6 +17,10 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ url, cookies }) => {
 	let sessionID = cookies.get('session');
 	if (!sessionID) return redirect(303, '/auth');
+	if (sessionID != 'guest') {
+		const identity = await identityFromSessionID(sessionID);
+		if (!(await isValidSession(sessionID, identity))) return redirect(303, '/logout');
+	}
 	let personUUID: string | null = await identityFromSessionID(sessionID);
 	const dbTimings = await getCFG();
 	const scheduleVisible =
@@ -45,6 +50,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 			)
 			.map((key) => row[key as keyof typeof row] as Role)
 	}));
+	schedule.sort((a, b) => a.name.localeCompare(b.name));
 
 	let roles: Record<string, string[]>[] = [];
 	for (let slot of slots) {
@@ -123,6 +129,20 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 		currentPerson = { data, currentRole, nextRole };
 	}
 
+	let tradeRequestData = {
+		uuid: null,
+		person: null
+	};
+	if (personUUID) {
+		const receivingRequests: any[] = await getIncomingRequests(personUUID);
+		if (receivingRequests && receivingRequests.length > 0) {
+			tradeRequestData = {
+				uuid: receivingRequests[0].requestUUID,
+				person: peopleLookUp[receivingRequests[0].personInit]
+			};
+		}
+	}
+
 	return {
 		scheduleVisible,
 		isAdmin,
@@ -132,6 +152,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 		roles,
 		currentSlot,
 		nextSlot,
-		currentPerson
+		currentPerson,
+		tradeRequestData
 	};
 };

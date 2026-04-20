@@ -17,7 +17,7 @@ export async function initDB() {
 			lastName TEXT,
 			displayName TEXT,
 			email TEXT,
-			phone INT,
+			phone INTEGER,
 			attendingEvent BOOLEAN,
 			attendingLoadIn BOOLEAN,
 			rolePool TEXT,
@@ -65,6 +65,15 @@ export async function initDB() {
 			session_id CHAR(36),
 			session_expire LONG,
 			session_identity TEXT
+		)
+	`);
+
+	db.run(`
+		CREATE TABLE IF NOT EXISTS tradeRequest (
+			requestUUID CHAR(36),
+			personInit TEXT,
+			personReceive TEXT,
+			slotID INTEGER
 		)
 	`);
 }
@@ -252,9 +261,7 @@ export async function getSchedule() {
 }
 
 export async function getPersonSchedule(personUUID: string) {
-	return db
-		.prepare(`SELECT * FROM schedule WHERE personUUID = ?`)
-		.get(personUUID) as personSchedule;
+	return db.prepare(`SELECT * FROM schedule WHERE personUUID = ?`).get(personUUID);
 }
 
 export async function getCurrentSchedule() {
@@ -388,6 +395,30 @@ export async function deleteSession(sessionID: string) {
 
 export async function clearSessions() {
 	return db.prepare('DELETE FROM sessions').run();
+}
+
+export async function createTradeRequest(
+	personInit: string,
+	personReceive: string,
+	slotID: number
+) {
+	const uuid = Bun.randomUUIDv7();
+	await db
+		.prepare('INSERT INTO tradeRequest VALUES (?, ?, ?, ?)')
+		.run(uuid, personInit, personReceive, slotID);
+	return uuid;
+}
+
+export async function getTradeRequest(uuid: string) {
+	return await db.prepare('SELECT * FROM tradeRequest WHERE requestUUID = ?').get(uuid);
+}
+
+export async function getIncomingRequests(personReceive: string) {
+	return await db.prepare('SELECT * FROM tradeRequest WHERE personReceive = ?').all(personReceive);
+}
+
+export async function removeTradeRequest(uuid: string) {
+	return await db.prepare('DELETE FROM tradeRequest WHERE requestUUID = ?').run(uuid);
 }
 
 async function formatName(firstName: string, lastName: string) {

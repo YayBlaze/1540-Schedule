@@ -1,4 +1,5 @@
 import {
+	getIncomingRequests,
 	getNamesInRole,
 	getPeople,
 	getPerson,
@@ -13,7 +14,7 @@ import type { Actions } from './$types';
 import { getSlots } from '$lib/db';
 import { Role, type PersonData } from '$lib/types';
 
-export const load: PageServerLoad = async ({ params, cookies }) => {
+export const load: PageServerLoad = async ({ params, cookies, url }) => {
 	const personUUID = params.slug;
 	const sessionID = cookies.get('session') ?? '';
 	const adminSession = cookies.get('adminSession') ?? '';
@@ -29,6 +30,8 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 	for (let person of people) {
 		peopleLookUp[person.uuid] = person.displayName;
 	}
+
+	const showSuccess = url.searchParams.get('success') == 'true';
 
 	const slots = await getSlots();
 	let scheduleRAW = await getSchedule();
@@ -59,7 +62,39 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 		});
 	}
 
-	return { personData, people, schedule, slots, roles };
+	let tradeRequestData: {
+		uuid: string | null;
+		person: string | null;
+		slot: number | null;
+		incomingRole: Role | null;
+		outgoingRole: Role | null;
+	} = {
+		uuid: null,
+		person: null,
+		slot: null,
+		incomingRole: null,
+		outgoingRole: null
+	};
+	if (personUUID) {
+		const receivingRequests: any[] = await getIncomingRequests(personUUID);
+		if (receivingRequests && receivingRequests.length > 0) {
+			tradeRequestData = {
+				uuid: receivingRequests[0].requestUUID,
+				person: peopleLookUp[receivingRequests[0].personInit],
+				slot: receivingRequests[0].slotID,
+				incomingRole:
+					schedule.find((v) => v.uuid === receivingRequests[0].personInit)?.slots[
+						receivingRequests[0].slotID - 1
+					] ?? null,
+				outgoingRole:
+					schedule.find((v) => v.uuid === personData.uuid)?.slots[
+						receivingRequests[0].slotID - 1
+					] ?? null
+			};
+		}
+	}
+
+	return { personData, people, schedule, slots, roles, tradeRequestData, showSuccess };
 };
 
 export const actions = {
