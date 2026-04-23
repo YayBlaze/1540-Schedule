@@ -46,6 +46,6 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	if (!person) return new Response('Invalid user', { status: 400 });
 
 	const sessionID = await newSession(person.uuid);
-	cookies.set('session', sessionID, { path: '/' });
+	cookies.set('session', sessionID, { path: '/', maxAge: 60 * 60 * 1000 });
 	return redirect(303, '/');
 };

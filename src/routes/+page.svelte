@@ -99,6 +99,7 @@
 	onDestroy(() => clearInterval(interval));
 </script>
 
+<!-- top nav -->
 <nav class="mb-5 flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<div class="flex items-center justify-start gap-1">
 		<h1 class="pr-5 text-4xl text-(--black)">{team} Schedule</h1>
@@ -139,6 +140,7 @@
 	<h1 class="m-auto text-center text-4xl text-(--red)">Viewing as Admin</h1>
 {/if}
 
+<!-- trade request popup -->
 {#if tradingRequestData?.uuid}
 	<Toast align={false} class="fixed right-5 bg-(--black2) dark:bg-(--black2)">
 		{#snippet icon()}
@@ -162,6 +164,7 @@
 	</Toast>
 {/if}
 
+<!-- button to visit person page -->
 {#if personData}
 	<div class="flex items-center justify-center gap-2">
 		<h1 class="text-2xl">Welcome {personData?.displayName}</h1>
@@ -171,6 +174,7 @@
 	</div>
 {/if}
 
+<!-- current slot / role  -->
 {#if visible || isAdmin}
 	<div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
 		<div class="flex flex-col items-center justify-center gap-2">
@@ -204,6 +208,7 @@
 	</div>
 {/if}
 
+<!-- main schedule  -->
 {#if (visible || isAdmin) && view == 'person'}
 	<div class="m-auto mb-10 size-fit overflow-x-scroll rounded-xl bg-(--black2) p-5">
 		<table class="nunito">
@@ -301,6 +306,7 @@
 	</div>
 {/if}
 
+<!-- time amounts -->
 {#if visible || isAdmin}
 	<div
 		class="m-auto mt-10 flex h-fit w-[90%] flex-col gap-2 overflow-x-scroll rounded-xl bg-(--black2) p-5"
