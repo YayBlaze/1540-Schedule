@@ -165,7 +165,7 @@
 {/if}
 
 <!-- button to visit person page -->
-{#if personData}
+{#if personData && visible}
 	<div class="flex items-center justify-center gap-2">
 		<h1 class="text-2xl">Welcome {personData?.displayName}</h1>
 		<button class="button-primary" onclick={() => goto(`/user/${personData?.uuid}`)}
