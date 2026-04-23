@@ -380,6 +380,7 @@ export async function deleteSession(sessionID: string) {
 }
 
 export async function clearSessions() {
+	console.log(`Clearing All Sessions ${new Date().toLocaleTimeString('en-US', { hour12: false })}`);
 	return db.prepare('DELETE FROM sessions').run();
 }
 
@@ -426,6 +427,7 @@ export async function msToSlot(ms: number) {
 	for (let current of slots) {
 		if (current.startTimestamp < ms && current.endTimestamp > ms) {
 			slot = current;
+			break;
 		}
 	}
 	if (!slot) return null;

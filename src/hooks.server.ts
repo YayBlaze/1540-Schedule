@@ -10,13 +10,13 @@ export const init: ServerInit = async () => {
 	let ticks = 0;
 	let lastTick = Date.now();
 	setInterval(async () => {
-		if (ticks % (5 * 60 * 1000) == 0) updateSlotTiming();
-		if (ticks % (5 * 60 * 60 * 1000) == 0) clearSessions();
+		if (ticks % (5 * 60) == 0) updateSlotTiming();
+		if (ticks % (5 * 60 * 60) == 0 && ticks > 0) clearSessions();
 		if ((await msToSlot(Date.now()))?.num != (await msToSlot(lastTick))?.num) {
 			(await getPeople()).forEach((person) => sendRoleUpdate(person.uuid));
 		}
 		lastTick = Date.now();
-		ticks++;
+		ticks += 10;
 	}, 10 * 1000);
 };
 

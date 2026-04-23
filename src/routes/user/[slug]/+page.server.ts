@@ -2,8 +2,6 @@ import {
 	getIncomingRequests,
 	getNamesInRole,
 	getPeople,
-	getPerson,
-	getPersonSchedule,
 	getSchedule,
 	isValidSession,
 	updatePerson
@@ -13,9 +11,11 @@ import type { PageServerLoad } from './$types';
 import type { Actions } from './$types';
 import { getSlots } from '$lib/db';
 import { Role, type PersonData } from '$lib/types';
+import { sendRoleUpdate } from '$lib/slack';
 
 export const load: PageServerLoad = async ({ params, cookies, url }) => {
 	const personUUID = params.slug;
+	await sendRoleUpdate('019d935a-2521-7004-b4df-27e55e5adbf8');
 	const sessionID = cookies.get('session') ?? '';
 	const adminSession = cookies.get('adminSession') ?? '';
 	const isPerson = await isValidSession(sessionID, personUUID);

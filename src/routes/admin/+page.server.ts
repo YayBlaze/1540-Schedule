@@ -165,23 +165,17 @@ export const actions = {
 		const doScouting = data.get('doScouting')?.toString() === 'on';
 		if (!slotString || !startTimeString || !endTimeString) return fail(400);
 		let slotNumber = parseInt(slotString);
-		if (!startLabel || !endLabel) {
-			let slots = await getSlots();
-			slots.splice(slotNumber, 1);
-			await setSlots(slots);
-		} else {
-			let startTimestamp = new Date(startTimeString).getTime();
-			let endTimestamp = new Date(endTimeString).getTime();
-			await setSlot({
-				slotNumber,
-				startLabel,
-				startTimestamp,
-				endLabel,
-				endTimestamp,
-				allowUpdate,
-				doScouting
-			});
-		}
+		let startTimestamp = new Date(startTimeString).getTime();
+		let endTimestamp = new Date(endTimeString).getTime();
+		await setSlot({
+			slotNumber,
+			startLabel: startLabel ?? null,
+			startTimestamp,
+			endLabel: endLabel ?? null,
+			endTimestamp,
+			allowUpdate,
+			doScouting
+		});
 	},
 	importPrefs: async ({}) => await importPreferences(),
 	importPeople: async ({}) => await importPeople(),

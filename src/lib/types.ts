@@ -38,8 +38,8 @@ export type slotData = {
 	slotNumber: number;
 	startTimestamp: number;
 	endTimestamp: number;
-	startLabel: string;
-	endLabel: string;
+	startLabel: string | null;
+	endLabel: string | null;
 	allowUpdate: boolean;
 	doScouting: boolean;
 };
