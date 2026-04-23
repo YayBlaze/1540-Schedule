@@ -42,6 +42,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
 	const user = await res.json();
 	const username = user.preferred_username;
+	if (username === 'forbesk@catlin.edu') redirect(303, '/auth?/guest');
 	const person = await getPersonFromEmail(username);
 	if (!person) return new Response('Invalid user', { status: 400 });
 

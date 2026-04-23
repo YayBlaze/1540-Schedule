@@ -1,4 +1,6 @@
 import { getPersonSchedule, getTradeRequest, removeTradeRequest, setPersonSchedule } from '$lib/db';
+import { sendSlackText } from '$lib/slack';
+import { getSlackUserFromEmail } from '$lib/slack';
 import type { personSchedule, Role } from '$lib/types';
 import { json, type RequestHandler } from '@sveltejs/kit';
 
@@ -24,6 +26,12 @@ export const POST: RequestHandler = async ({ request }) => {
 		Object.keys(personReceiveSchedule)
 			.filter((key) => key.startsWith('slot'))
 			.map((key) => personReceiveSchedule[key as keyof typeof personReceiveSchedule] as Role)
+	);
+
+	const personInitSlackUser = await getSlackUserFromEmail(requestData.personInit.email);
+	await sendSlackText(
+		personInitSlackUser.user.id,
+		`${requestData.personReceive.displayName} accepted your trade request`
 	);
 
 	await removeTradeRequest(data.uuid);

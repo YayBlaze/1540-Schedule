@@ -85,7 +85,8 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 				endTimestamp: -1,
 				startLabel: 'None',
 				endLabel: '',
-				allowUpdate: true
+				allowUpdate: true,
+				doScouting: true
 			};
 		else {
 			nextSlot = {
@@ -94,7 +95,8 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 				endTimestamp: currentSlotDetailed.endTimestamp,
 				startLabel: 'None',
 				endLabel: '',
-				allowUpdate: true
+				allowUpdate: true,
+				doScouting: true
 			};
 		}
 	}
