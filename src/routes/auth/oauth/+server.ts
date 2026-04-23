@@ -1,5 +1,5 @@
 import { redirect, type RequestHandler } from '@sveltejs/kit';
-import { veracross, AUTH_URL } from '$lib/auth';
+import { veracross, AUTH_URL } from '$lib/oauth';
 import { generateState } from 'arctic';
 
 export const GET: RequestHandler = async ({ cookies }) => {

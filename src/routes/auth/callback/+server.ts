@@ -1,5 +1,5 @@
 import { oAuthCallbackURL, oAuthClientID, oAuthClientSecret } from '$env/static/private';
-import { TOKEN_URL, USR_INFO_URL } from '$lib/auth';
+import { TOKEN_URL, USR_INFO_URL } from '$lib/oauth';
 import { getPersonFromEmail, newSession } from '$lib/db';
 import { redirect, type RequestHandler } from '@sveltejs/kit';
 
