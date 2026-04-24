@@ -1,5 +1,5 @@
 import { slackBotToken } from '$env/static/private';
-import { getPerson, getPersonSchedule, getSlots, msToSlot } from './db';
+import { getCFG, getPerson, getPersonSchedule, getSlots, msToSlot } from './db';
 
 function msToRelative(ms: number): string {
 	let seconds = ms / 1000;
@@ -19,6 +19,9 @@ function msToRelative(ms: number): string {
 }
 
 export async function sendSlackText(channelID: string, message: string) {
+	const appCFG = await getCFG();
+	const sendSlackUpdates = appCFG.find((v) => v.key == 'slackUpdates')?.value == '0' ? false : true;
+	if (!sendSlackUpdates) return 'slack turned off';
 	const response = await fetch('https://slack.com/api/chat.postMessage', {
 		method: 'POST',
 		headers: {
@@ -35,6 +38,9 @@ export async function sendSlackText(channelID: string, message: string) {
 }
 
 export async function sendSlackBlocks(channelID: string, blocks: any[]) {
+	const appCFG = await getCFG();
+	const sendSlackUpdates = appCFG.find((v) => v.key == 'slackUpdates')?.value == '0' ? false : true;
+	if (!sendSlackUpdates) return 'slack turned off';
 	const response = await fetch('https://slack.com/api/chat.postMessage', {
 		method: 'POST',
 		headers: {
@@ -64,6 +70,11 @@ export async function getSlackUserFromEmail(email: string) {
 }
 
 export async function sendRoleUpdate(userUUID: string) {
+	const appCFG = await getCFG();
+	const scheduleVisible =
+		appCFG.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
+	const sendSlackUpdates = appCFG.find((v) => v.key == 'slackUpdates')?.value == '0' ? false : true;
+	if (!scheduleVisible || !sendSlackUpdates) return;
 	const personData = await getPerson(userUUID);
 	if (!personData) throw new Error('invalid userUUID');
 	const slackUSR = await getSlackUserFromEmail(personData?.email);

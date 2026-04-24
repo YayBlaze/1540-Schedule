@@ -20,9 +20,10 @@ import { generateSchedule, generateSlotsNexus } from '$lib/schedule';
 import { getLunchTimes, getEventTimes } from '$lib/nexus';
 
 export const load: PageServerLoad = async () => {
-	const dbTimings = await getCFG();
+	const appCFG = await getCFG();
 	const scheduleVisible =
-		dbTimings.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
+		appCFG.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
+	const sendSlackUpdates = appCFG.find((v) => v.key == 'slackUpdates')?.value == '0' ? false : true;
 	const people = await getPeople();
 	let slots = await getSlots();
 	const lunch = await getLunchTimes();
@@ -51,7 +52,8 @@ export const load: PageServerLoad = async () => {
 			date: dateString ? true : false
 		},
 		dateString: dateString ?? new Date().toLocaleDateString('en-US'),
-		slots
+		slots,
+		sendSlackUpdates
 	};
 };
 
@@ -180,9 +182,14 @@ export const actions = {
 	importPrefs: async ({}) => await importPreferences(),
 	importPeople: async ({}) => await importPeople(),
 	toggleVisibility: async ({}) => {
-		const dbTimings = await getCFG();
+		const appCFG = await getCFG();
 		const scheduleVisible =
-			dbTimings.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
+			appCFG.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
 		await setCFG({ key: 'scheduleVisible', value: !scheduleVisible });
+	},
+	toggleSlackUpdates: async ({}) => {
+		const appCFG = await getCFG();
+		const slackUpdates = appCFG.find((v) => v.key === 'slackUpdates')?.value == '0' ? false : true;
+		await setCFG({ key: 'slackUpdates', value: !slackUpdates });
 	}
 } satisfies Actions;

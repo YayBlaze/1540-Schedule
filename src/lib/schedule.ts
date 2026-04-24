@@ -189,6 +189,12 @@ export async function updateSlotTiming() {
 	await fetchData();
 	const matches = await ourMatches();
 	const slots = await getSlots();
+	if (!matches || !slots) {
+		console.error(
+			`Failed to update slot timing at ${new Date().toLocaleTimeString('en-US', { hour12: false })}: Has matches ${!!matches}, has slots ${!!slots}`
+		);
+		return;
+	}
 	console.log(
 		`Starting to update slot timing at ${new Date().toLocaleTimeString('en-US', { hour12: false })}`
 	);

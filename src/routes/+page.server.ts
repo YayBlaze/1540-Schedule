@@ -22,9 +22,9 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 		if (!(await isValidSession(sessionID, identity))) return redirect(303, '/logout');
 	}
 	let personUUID: string | null = await identityFromSessionID(sessionID);
-	const dbTimings = await getCFG();
+	const appCFG = await getCFG();
 	const scheduleVisible =
-		dbTimings.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
+		appCFG.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
 	const scheduleRAW = await getSchedule();
 	const slots = await getSlots();
 	const people = await getPeople();

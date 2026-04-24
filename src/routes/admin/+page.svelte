@@ -7,6 +7,7 @@
 	let { data }: PageProps = $props();
 
 	var visible = $derived(data.scheduleVisible);
+	var sendSlackUpdates = $derived(data.sendSlackUpdates);
 	var people = $derived(data.people);
 	var times = $derived(data.times);
 	var date = $derived(data.dateString);
@@ -109,6 +110,17 @@
 			</div>
 			<form action="?/importPeople" method="post">
 				<button class="button-primary" id="submit">Import People</button>
+			</form>
+		</div>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Toggle Slack Updates</h1>
+				<p class="pb-1 text-sm text-(--grey)">Toggles automatic slack messages when roles update</p>
+			</div>
+			<form action="?/toggleSlackUpdates" method="post">
+				<button id="submit" class={sendSlackUpdates ? 'button-green' : 'button-red'}
+					>{sendSlackUpdates ? 'On' : 'Off'}</button
+				>
 			</form>
 		</div>
 	</div>

@@ -102,7 +102,7 @@
 <!-- top nav -->
 <nav class="mb-5 flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<div class="flex items-center justify-start gap-1">
-		<h1 class="pr-5 text-4xl text-(--black)">{team} Schedule</h1>
+		<h1 class="pr-5 text-2xl text-(--black)">{team} Schedule</h1>
 		{#if view == 'time'}
 			<button
 				class="rounded-md border border-(--white) bg-(--black) p-2 text-(--white)"
@@ -122,7 +122,7 @@
 		{/if}
 	</div>
 
-	<div>
+	<div class="flex flex-wrap items-center justify-center gap-2">
 		<button
 			onclick={() => goto('/logout')}
 			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--red) transition duration-200 hover:border-(--red) hover:bg-(--white) hover:text-(--red)"
@@ -210,7 +210,7 @@
 
 <!-- main schedule  -->
 {#if (visible || isAdmin) && view == 'person'}
-	<div class="m-auto mb-10 size-fit overflow-x-scroll rounded-xl bg-(--black2) p-5">
+	<div class="m-auto mb-10 size-fit max-w-screen overflow-x-scroll rounded-xl bg-(--black2) p-5">
 		<table class="nunito">
 			<thead class="text-sm">
 				<tr>
@@ -264,7 +264,9 @@
 		</table>
 	</div>
 {:else if (visible || isAdmin) && view == 'time'}
-	<div class="nunito flex size-fit flex-col items-center justify-around gap-5">
+	<div
+		class="nunito flex size-fit max-w-screen flex-col items-center justify-around gap-5 overflow-x-scroll"
+	>
 		{#each slots as slot}
 			<div class="flex w-[90%] justify-between gap-5 rounded-md bg-(--black2) p-5">
 				<div
@@ -287,7 +289,7 @@
 								)}); color: var({(role as Role) === Role.Strategy || (role as Role) === Role.Open
 									? '--white'
 									: '--black'});"
-								class="flex gap-1.5 rounded-md p-1"
+								class="flex flex-wrap gap-1.5 rounded-md p-1"
 							>
 								<p class="font-bold">{role}</p>
 								{#each roles[slot.slotNumber - 1][role as Role] as person}
@@ -309,7 +311,7 @@
 <!-- time amounts -->
 {#if visible || isAdmin}
 	<div
-		class="m-auto mt-10 flex h-fit w-[90%] flex-col gap-2 overflow-x-scroll rounded-xl bg-(--black2) p-5"
+		class="m-auto mt-10 flex h-fit w-[90%] max-w-screen flex-col gap-2 overflow-x-scroll rounded-xl bg-(--black2) p-5"
 	>
 		{#each schedule as person}
 			<div class="flex items-center gap-2 p-3">

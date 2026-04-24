@@ -161,7 +161,7 @@
 	}
 </script>
 
-<nav class="mb-5 flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
+<nav class="mb-5 flex h-fit max-w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<h1 class="pr-5 text-4xl text-(--black)">{team} Schedule</h1>
 	<div>
 		<button
@@ -172,7 +172,7 @@
 	</div>
 </nav>
 
-<form class="flex w-full flex-col justify-around gap-5 p-3" method="POST">
+<form class="flex max-w-screen flex-col justify-around gap-5 p-3" method="POST">
 	<input type="hidden" name="personData" bind:value={personDataString} />
 	<div class="item m-auto flex flex-col gap-2">
 		<h1 class="text-center text-5xl">Welcome {personData?.displayName}</h1>
@@ -209,45 +209,48 @@
 	<div class="item m-auto">
 		<h1 class="text-2xl">My Schedule</h1>
 		{#if scheduleVisible}
-			<table class="nunito">
-				<thead class="text-sm">
-					<tr>
-						{#each slots as slot}
-							<th
-								class="w-fit bg-[#3c3c3c] p-2 text-nowrap"
-								style="font-weight: {slot.startTimestamp < Date.now() &&
-								slot.endTimestamp > Date.now()
-									? 900
-									: 400}; color: var({slot.startTimestamp < Date.now() &&
-								slot.endTimestamp > Date.now()
-									? '--yellow'
-									: '--white'})"
-							>
-								{#if slot.startLabel != ''}<p>{slot.startLabel}-{slot.endLabel}</p>{/if}
-								<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p></th
-							>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						{#each schedule.find((person) => person.uuid === personData.uuid)?.slots as slot}
-							{#if slot}
-								<td
-									class="border border-(--black) p-2 text-center"
-									style="background-color: var({getColor(slot)}); color: var({slot ===
-										Role.Strategy || slot === Role.Open
-										? '--white'
-										: '--black'});"
-									onclick={() => {
-										if (slot === Role.Scouting) window.open('https://scout.team1540.org', '_blank');
-									}}>{slot}</td
+			<div class="max-w-screen overflow-x-scroll">
+				<table class="nunito">
+					<thead class="text-sm">
+						<tr>
+							{#each slots as slot}
+								<th
+									class="w-fit bg-[#3c3c3c] p-2 text-nowrap"
+									style="font-weight: {slot.startTimestamp < Date.now() &&
+									slot.endTimestamp > Date.now()
+										? 900
+										: 400}; color: var({slot.startTimestamp < Date.now() &&
+									slot.endTimestamp > Date.now()
+										? '--yellow'
+										: '--white'})"
 								>
-							{/if}
-						{/each}
-					</tr>
-				</tbody>
-			</table>
+									{#if slot.startLabel != ''}<p>{slot.startLabel}-{slot.endLabel}</p>{/if}
+									<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p></th
+								>
+							{/each}
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							{#each schedule.find((person) => person.uuid === personData.uuid)?.slots as slot}
+								{#if slot}
+									<td
+										class="border border-(--black) p-2 text-center"
+										style="background-color: var({getColor(slot)}); color: var({slot ===
+											Role.Strategy || slot === Role.Open
+											? '--white'
+											: '--black'});"
+										onclick={() => {
+											if (slot === Role.Scouting)
+												window.open('https://scout.team1540.org', '_blank');
+										}}>{slot}</td
+									>
+								{/if}
+							{/each}
+						</tr>
+					</tbody>
+				</table>
+			</div>
 			<div class="flex items-center gap-2 p-3">
 				Times:
 				{#each Object.keys(roles[0]) as role}
@@ -272,7 +275,7 @@
 			</div>
 		{/if}
 	</div>
-	<div class="m-auto flex h-fit w-[95%] items-stretch justify-between gap-5">
+	<div class="m-auto flex h-fit w-[95%] flex-col items-stretch justify-between gap-5 md:flex-row">
 		<div class="item">
 			<h1 class="text-2xl">Personal Information</h1>
 			<div class="flex flex-wrap gap-2">
@@ -309,7 +312,9 @@
 						class="nunito"
 						bind:value={personData.email}
 					/>
-					<Helper class="mt-2 text-xs">Used the same email as the roles google form</Helper>
+					<Helper class="mt-2 text-xs"
+						>Must be your catlin email or you will be locked out of your account</Helper
+					>
 				</div>
 				<div class="w-70">
 					<Label for="phone">Phone Number</Label>
@@ -318,7 +323,6 @@
 						id="phone"
 						aria-describedby="helper-text-explanation"
 						placeholder="1234567890"
-						required
 						bind:value={personData.phone}
 					/>
 					<Helper class="mt-2 text-xs"
@@ -358,7 +362,7 @@
 	</div>
 
 	{#if scheduleVisible}
-		<div class="item m-auto">
+		<div class="item m-auto max-w-screen overflow-x-scroll">
 			<h1 class="text-2xl" id="trade">
 				{incomingTradeRequest.uuid ? 'Incoming Trade Request' : 'Trade Schedule Slots'}
 			</h1>
