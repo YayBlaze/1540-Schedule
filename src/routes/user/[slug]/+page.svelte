@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Toggle, Input, Label, Tooltip, Button, Helper, Alert } from 'flowbite-svelte';
+	import { Toggle, Input, Label, Tooltip, Button, Helper, Alert, P } from 'flowbite-svelte';
 	import { goto } from '$app/navigation';
 	import { team } from '$lib/config';
 	import type { PageProps } from './$types';
@@ -17,6 +17,8 @@
 	let slots = $derived(data.slots);
 	let roles = $derived(data.roles);
 	let showSuccessMsg = $derived(data.showSuccess);
+	let successMsg = $derived(data.successMsg);
+	let scheduleVisible = $derived(data.scheduleVisible);
 
 	let incomingTradeRequest = $derived(data.tradeRequestData);
 	let incomingTradeSlot = $derived(slots[(incomingTradeRequest.slot ?? 1) - 1]);
@@ -126,11 +128,10 @@
 			})
 		});
 		if ((await res.json()).status == 200) {
-			showSuccessMsg = true;
-			setTimeout(() => (showSuccessMsg = false), 5 * 1000);
+			goto(
+				`/user/${personData.uuid}?success=true&successMsg=Submitted trade request with ${tradingPerson?.displayName}`
+			);
 		}
-		tradingPerson = undefined;
-		tradingSlot = undefined;
 	}
 
 	async function declineTradeRequest() {
@@ -141,15 +142,9 @@
 			})
 		});
 		if ((await res.json()).status == 200) {
-			showSuccessMsg = true;
-			setTimeout(() => (showSuccessMsg = false), 5 * 1000);
-			incomingTradeRequest = {
-				uuid: null,
-				person: null,
-				slot: null,
-				incomingRole: null,
-				outgoingRole: null
-			};
+			goto(
+				`/user/${personData.uuid}?success=true&successMsg=Successfully denied ${incomingTradeRequest.person}'s Trade Request`
+			);
 		}
 	}
 
@@ -160,7 +155,9 @@
 				uuid: incomingTradeRequest.uuid
 			})
 		});
-		goto(`/user/${personData.uuid}?success=true`);
+		goto(
+			`/user/${personData.uuid}?success=true&successMsg=Accepted ${incomingTradeRequest.person}'s Trade Request`
+		);
 	}
 </script>
 
@@ -211,61 +208,69 @@
 	</div>
 	<div class="item m-auto">
 		<h1 class="text-2xl">My Schedule</h1>
-		<table class="nunito">
-			<thead class="text-sm">
-				<tr>
-					{#each slots as slot}
-						<th
-							class="w-fit bg-[#3c3c3c] p-2 text-nowrap"
-							style="font-weight: {slot.startTimestamp < Date.now() &&
-							slot.endTimestamp > Date.now()
-								? 900
-								: 400}; color: var({slot.startTimestamp < Date.now() &&
-							slot.endTimestamp > Date.now()
-								? '--yellow'
-								: '--white'})"
-						>
-							{#if slot.startLabel != ''}<p>{slot.startLabel}-{slot.endLabel}</p>{/if}
-							<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p></th
-						>
-					{/each}
-				</tr>
-			</thead>
-			<tbody>
-				<tr>
-					{#each schedule.find((person) => person.uuid === personData.uuid)?.slots as slot}
-						{#if slot}
-							<td
-								class="border border-(--black) p-2 text-center"
-								style="background-color: var({getColor(slot)}); color: var({slot ===
-									Role.Strategy || slot === Role.Open
-									? '--white'
-									: '--black'});"
-								onclick={() => {
-									if (slot === Role.Scouting) window.open('https://scout.team1540.org', '_blank');
-								}}>{slot}</td
+		{#if scheduleVisible}
+			<table class="nunito">
+				<thead class="text-sm">
+					<tr>
+						{#each slots as slot}
+							<th
+								class="w-fit bg-[#3c3c3c] p-2 text-nowrap"
+								style="font-weight: {slot.startTimestamp < Date.now() &&
+								slot.endTimestamp > Date.now()
+									? 900
+									: 400}; color: var({slot.startTimestamp < Date.now() &&
+								slot.endTimestamp > Date.now()
+									? '--yellow'
+									: '--white'})"
 							>
-						{/if}
-					{/each}
-				</tr>
-			</tbody>
-		</table>
-		<div class="flex items-center gap-2 p-3">
-			Times:
-			{#each Object.keys(roles[0]) as role}
-				{#if calcRoleTime(role as Role, personData.displayName) != '0s'}
-					<div
-						style="background-color: var({getColor(role as Role)}); color: var({(role as Role) ===
-							Role.Strategy || (role as Role) === Role.Open
-							? '--white'
-							: '--black'});"
-						class="nunito flex gap-1.5 rounded-md p-1 font-medium"
-					>
-						<p>{role}: {calcRoleTime(role as Role, personData.displayName)}</p>
-					</div>
-				{/if}
-			{/each}
-		</div>
+								{#if slot.startLabel != ''}<p>{slot.startLabel}-{slot.endLabel}</p>{/if}
+								<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p></th
+							>
+						{/each}
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						{#each schedule.find((person) => person.uuid === personData.uuid)?.slots as slot}
+							{#if slot}
+								<td
+									class="border border-(--black) p-2 text-center"
+									style="background-color: var({getColor(slot)}); color: var({slot ===
+										Role.Strategy || slot === Role.Open
+										? '--white'
+										: '--black'});"
+									onclick={() => {
+										if (slot === Role.Scouting) window.open('https://scout.team1540.org', '_blank');
+									}}>{slot}</td
+								>
+							{/if}
+						{/each}
+					</tr>
+				</tbody>
+			</table>
+			<div class="flex items-center gap-2 p-3">
+				Times:
+				{#each Object.keys(roles[0]) as role}
+					{#if calcRoleTime(role as Role, personData.displayName) != '0s'}
+						<div
+							style="background-color: var({getColor(role as Role)}); color: var({(role as Role) ===
+								Role.Strategy || (role as Role) === Role.Open
+								? '--white'
+								: '--black'});"
+							class="nunito flex gap-1.5 rounded-md p-1 font-medium"
+						>
+							<p>{role}: {calcRoleTime(role as Role, personData.displayName)}</p>
+						</div>
+					{/if}
+				{/each}
+			</div>
+		{:else}
+			<div
+				class="nunito flex size-full flex-col items-center justify-around gap-5 text-4xl font-bold"
+			>
+				<h1>Schedule not published D:</h1>
+			</div>
+		{/if}
 	</div>
 	<div class="m-auto flex h-fit w-[95%] items-stretch justify-between gap-5">
 		<div class="item">
@@ -317,7 +322,7 @@
 						bind:value={personData.phone}
 					/>
 					<Helper class="mt-2 text-xs"
-						>Used for SMS notifications upon new role (currently in development)</Helper
+						>Optional | Used to send SMS messages with updates (not currently functional)</Helper
 					>
 				</div>
 			</div>
@@ -351,105 +356,111 @@
 			>
 		</div>
 	</div>
-	<div class="item m-auto">
-		<h1 class="text-2xl" id="trade">
-			{incomingTradeRequest.uuid ? 'Incoming Trade Request' : 'Trade Schedule Slots'}
-		</h1>
-		{#if !incomingTradeRequest.uuid}
-			<div class="flex items-center gap-2">
-				<p class="nunito">Trading With:</p>
-				<input type="hidden" name="tradingInit" value={personData} />
-				<select class="w-40" bind:value={tradingPerson} name="tradingReceive">
-					{#each people as person}
-						{#if person.attendingEvent && person.uuid != personData.uuid}
-							<option value={person}>{person.displayName}</option>
-						{/if}
-					{/each}
-				</select>
-				<p class="nunito">Trading Slot:</p>
-				<select class="w-40" bind:value={tradingSlot} name="slot">
-					{#each slots as slot}
-						<option value={slot}>
-							{#if slot.startLabel != ''}
-								<p>{slot.startLabel}-{slot.endLabel}</p>
-							{:else}
-								<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p>
+
+	{#if scheduleVisible}
+		<div class="item m-auto">
+			<h1 class="text-2xl" id="trade">
+				{incomingTradeRequest.uuid ? 'Incoming Trade Request' : 'Trade Schedule Slots'}
+			</h1>
+			{#if !incomingTradeRequest.uuid}
+				<div class="flex items-center gap-2">
+					<p class="nunito">Trading With:</p>
+					<input type="hidden" name="tradingInit" value={personData} />
+					<select class="w-40" bind:value={tradingPerson} name="tradingReceive">
+						{#each people as person}
+							{#if person.attendingEvent && person.uuid != personData.uuid}
+								<option value={person}>{person.displayName}</option>
 							{/if}
-						</option>
-					{/each}
-				</select>
-				<p class="nunito">
-					({msToRelative(
-						(tradingSlot?.endTimestamp ?? slots[0].endTimestamp) -
-							(tradingSlot?.startTimestamp ?? slots[0].startTimestamp)
-					)})
-				</p>
-			</div>
-		{:else}
-			<div class="flex items-center gap-2">
-				<div class="flex flex-col justify-center text-center">
-					<p class="nunito font-bold!">Incoming Trade From</p>
-					<p class="nunito">{incomingTradeRequest.person}</p>
-				</div>
-				<div class="flex flex-col justify-center text-center">
-					<p class="nunito font-bold!">Trading Slot</p>
+						{/each}
+					</select>
+					<p class="nunito">Trading Slot:</p>
+					<select class="w-40" bind:value={tradingSlot} name="slot">
+						{#each slots as slot}
+							<option value={slot}>
+								{#if slot.startLabel != ''}
+									<p>{slot.startLabel}-{slot.endLabel}</p>
+								{:else}
+									<p>{msToTime(slot.startTimestamp)}-{msToTime(slot.endTimestamp)}</p>
+								{/if}
+							</option>
+						{/each}
+					</select>
 					<p class="nunito">
-						{#if incomingTradeSlot.startLabel != ''}
-							{incomingTradeSlot.startLabel}-{incomingTradeSlot.endLabel}
-						{/if}
-						{msToTime(incomingTradeSlot.startTimestamp)}-{msToTime(incomingTradeSlot.endTimestamp)}
 						({msToRelative(
 							(tradingSlot?.endTimestamp ?? slots[0].endTimestamp) -
 								(tradingSlot?.startTimestamp ?? slots[0].startTimestamp)
 						)})
 					</p>
 				</div>
-			</div>
-		{/if}
-		<div class="flex items-center gap-4">
-			<div>
-				<h1 class="text-xl">You have</h1>
-				<div
-					style="background-color: var({getColor(
-						incomingTradeRequest.outgoingRole ?? (userRole as Role)
-					)}); color: var({(incomingTradeRequest.outgoingRole ?? (userRole as Role)) ===
-						Role.Strategy || (incomingTradeRequest.outgoingRole ?? (userRole as Role)) === Role.Open
-						? '--white'
-						: '--black'});"
-					class="nunito rounded-md p-1 text-center font-medium"
-				>
-					<p>{incomingTradeRequest.outgoingRole ?? userRole}</p>
-				</div>
-			</div>
-			<div>
-				<h1 class="text-xl">{incomingTradeRequest.person ?? tradingPerson?.displayName} has</h1>
-				<div
-					style="background-color: var({getColor(
-						incomingTradeRequest.incomingRole ?? (tradingPersonRole as Role)
-					)}); color: var({(incomingTradeRequest.incomingRole ?? (tradingPersonRole as Role)) ===
-						Role.Strategy ||
-					(incomingTradeRequest.incomingRole ?? (tradingPersonRole as Role)) === Role.Open
-						? '--white'
-						: '--black'});"
-					class="nunito rounded-md p-1 text-center font-medium"
-				>
-					<p>{incomingTradeRequest.incomingRole ?? tradingPersonRole}</p>
-				</div>
-			</div>
-			{#if !incomingTradeRequest.uuid}
-				<button class="button-primary mt-3" type="button" onclick={tradeRequest}
-					>Submit Trade Request</button
-				>
 			{:else}
-				<button type="button" class="button-primary" onclick={acceptTradeRequest}
-					>Accept Trade</button
-				>
-				<button type="button" class="button-secondary" onclick={declineTradeRequest}
-					>Deny Trade</button
-				>
+				<div class="flex items-center gap-2">
+					<div class="flex flex-col justify-center text-center">
+						<p class="nunito font-bold!">Incoming Trade From</p>
+						<p class="nunito">{incomingTradeRequest.person}</p>
+					</div>
+					<div class="flex flex-col justify-center text-center">
+						<p class="nunito font-bold!">Trading Slot</p>
+						<p class="nunito">
+							{#if incomingTradeSlot.startLabel != ''}
+								{incomingTradeSlot.startLabel}-{incomingTradeSlot.endLabel}
+							{/if}
+							{msToTime(incomingTradeSlot.startTimestamp)}-{msToTime(
+								incomingTradeSlot.endTimestamp
+							)}
+							({msToRelative(
+								(tradingSlot?.endTimestamp ?? slots[0].endTimestamp) -
+									(tradingSlot?.startTimestamp ?? slots[0].startTimestamp)
+							)})
+						</p>
+					</div>
+				</div>
 			{/if}
+			<div class="flex items-center gap-4">
+				<div>
+					<h1 class="text-xl">You have</h1>
+					<div
+						style="background-color: var({getColor(
+							incomingTradeRequest.outgoingRole ?? (userRole as Role)
+						)}); color: var({(incomingTradeRequest.outgoingRole ?? (userRole as Role)) ===
+							Role.Strategy ||
+						(incomingTradeRequest.outgoingRole ?? (userRole as Role)) === Role.Open
+							? '--white'
+							: '--black'});"
+						class="nunito rounded-md p-1 text-center font-medium"
+					>
+						<p>{incomingTradeRequest.outgoingRole ?? userRole}</p>
+					</div>
+				</div>
+				<div>
+					<h1 class="text-xl">{incomingTradeRequest.person ?? tradingPerson?.displayName} has</h1>
+					<div
+						style="background-color: var({getColor(
+							incomingTradeRequest.incomingRole ?? (tradingPersonRole as Role)
+						)}); color: var({(incomingTradeRequest.incomingRole ?? (tradingPersonRole as Role)) ===
+							Role.Strategy ||
+						(incomingTradeRequest.incomingRole ?? (tradingPersonRole as Role)) === Role.Open
+							? '--white'
+							: '--black'});"
+						class="nunito rounded-md p-1 text-center font-medium"
+					>
+						<p>{incomingTradeRequest.incomingRole ?? tradingPersonRole}</p>
+					</div>
+				</div>
+				{#if !incomingTradeRequest.uuid}
+					<button class="button-primary mt-3" type="button" onclick={tradeRequest}
+						>Submit Trade Request</button
+					>
+				{:else}
+					<button type="button" class="button-primary" onclick={acceptTradeRequest}
+						>Accept Trade</button
+					>
+					<button type="button" class="button-secondary" onclick={declineTradeRequest}
+						>Deny Trade</button
+					>
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 
 	{#if hasUpdated}
 		<div class="fixed bottom-10 left-80 w-[50%] rounded-2xl border bg-(--black2) p-2 text-center">
@@ -466,7 +477,7 @@
 	<div class="fixed bottom-2 w-full">
 		<Alert color="green" dismissable class="m-auto w-100">
 			{#snippet icon()}<CheckCircleOutline class="h-5 w-5" />{/snippet}
-			Success!
+			{successMsg}
 		</Alert>
 	</div>
 {/if}

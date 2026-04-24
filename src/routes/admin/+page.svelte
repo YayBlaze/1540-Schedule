@@ -185,8 +185,8 @@
 					{/each}
 				</select>
 				<select name="role" class="w-full">
-					<option value={RolePool.PitLead}>Pit Lead</option>
 					<option value={RolePool.Drive}>Drive Team</option>
+					<option value={RolePool.PitLead}>Pit Lead</option>
 					<option value={RolePool.NO_Scouting}>No Scouting</option>
 					<option value={RolePool.ONLY_Strategy}>Strategy Only</option>
 					<option value={RolePool.TiaraJudge}>Tiara Judge</option>

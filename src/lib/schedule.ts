@@ -206,7 +206,7 @@ export async function updateSlotTiming() {
 			?.times.estimatedStartTime;
 		if (endMatchTime && endMatchTime != slot.endTimestamp) {
 			console.log(
-				`Updated slot ${slot.startLabel}-${slot.endLabel} to start at ${new Date(endMatchTime).toLocaleTimeString('en-US', { hour12: false })}`
+				`Updated slot ${slot.startLabel}-${slot.endLabel} to end at ${new Date(endMatchTime).toLocaleTimeString('en-US', { hour12: false })}`
 			);
 			slot.endTimestamp = endMatchTime;
 		}

@@ -11,6 +11,7 @@ import type { PageServerLoad } from './$types';
 import type { Actions } from './$types';
 import { getSlots } from '$lib/db';
 import { Role, type PersonData } from '$lib/types';
+import { getCFG } from '$lib/db';
 
 export const load: PageServerLoad = async ({ params, cookies, url }) => {
 	const personUUID = params.slug;
@@ -30,6 +31,7 @@ export const load: PageServerLoad = async ({ params, cookies, url }) => {
 	}
 
 	const showSuccess = url.searchParams.get('success') == 'true';
+	const successMsg = url.searchParams.get('successMsg') ?? '';
 
 	const slots = await getSlots();
 	let scheduleRAW = await getSchedule();
@@ -92,7 +94,21 @@ export const load: PageServerLoad = async ({ params, cookies, url }) => {
 		}
 	}
 
-	return { personData, people, schedule, slots, roles, tradeRequestData, showSuccess };
+	const appCFG = await getCFG();
+	const scheduleVisible =
+		appCFG.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
+
+	return {
+		personData,
+		people,
+		schedule,
+		slots,
+		roles,
+		tradeRequestData,
+		showSuccess,
+		successMsg,
+		scheduleVisible
+	};
 };
 
 export const actions = {
