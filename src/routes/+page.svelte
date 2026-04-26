@@ -4,9 +4,13 @@
 	import { onDestroy, onMount } from 'svelte';
 	import type { PageProps } from './$types';
 	import { team } from '$lib/config';
+	import { Button, Toast } from 'flowbite-svelte';
+	import { ExclamationCircleSolid } from 'flowbite-svelte-icons';
 
 	let { data }: PageProps = $props();
 
+	let visible = $derived(data.scheduleVisible);
+	let isAdmin = $derived(data.isAdmin);
 	let schedule = $derived(data.schedule);
 	let slots = $derived(data.slots);
 	let roles = $derived(data.roles);
@@ -15,9 +19,10 @@
 	let timeToNextSlot = $derived(msToRelative(nextSlot?.startTimestamp ?? Date.now() - Date.now()));
 	let view = $derived(data.view);
 	let currentPerson = $derived(data.currentPerson);
-	let personName = $derived(currentPerson.personName);
+	let personData = $derived(currentPerson.data);
 	let currentRole = $derived(currentPerson.currentRole);
 	let nextRole = $derived(currentPerson.nextRole);
+	let tradingRequestData = $derived(data.tradeRequestData);
 
 	function getColor(role: Role) {
 		switch (role) {
@@ -60,7 +65,9 @@
 	}
 
 	const msToTime = (ms: number) => {
-		return new Date(ms).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' });
+		return ms > 0
+			? new Date(ms).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' })
+			: 'Never';
 	};
 
 	function calcRoleTime(role: Role, name: string) {
@@ -83,7 +90,6 @@
 
 	let interval: NodeJS.Timeout;
 	onMount(() => {
-		console.log(personName);
 		if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
 		interval = setInterval(() => {
 			if (nextSlot) timeToNextSlot = msToRelative(nextSlot.startTimestamp - Date.now());
@@ -93,9 +99,10 @@
 	onDestroy(() => clearInterval(interval));
 </script>
 
+<!-- top nav -->
 <nav class="mb-5 flex h-fit w-screen items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<div class="flex items-center justify-start gap-1">
-		<h1 class="pr-5 text-4xl text-(--black)">{team} Schedule</h1>
+		<h1 class="pr-5 text-2xl text-(--black)">{team} Schedule</h1>
 		{#if view == 'time'}
 			<button
 				class="rounded-md border border-(--white) bg-(--black) p-2 text-(--white)"
@@ -115,11 +122,11 @@
 		{/if}
 	</div>
 
-	<div>
+	<div class="flex flex-wrap items-center justify-center gap-2">
 		<button
-			onclick={() => goto('/login')}
-			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
-			>Login</button
+			onclick={() => goto('/logout')}
+			class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--red) transition duration-200 hover:border-(--red) hover:bg-(--white) hover:text-(--red)"
+			>Logout</button
 		>
 		<button
 			onclick={() => goto('/admin')}
@@ -129,35 +136,81 @@
 	</div>
 </nav>
 
-<div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
-	<div class="flex flex-col items-center justify-center gap-2">
-		<p>Current Slot: {currentSlot.label}</p>
-		{#if currentRole}
-			<p style="color: var({currentRole != Role.Open ? getColor(currentRole) : 'white'}">
-				Current Role: {currentRole}
-			</p>
-		{/if}
+{#if !visible && isAdmin}
+	<h1 class="m-auto text-center text-4xl text-(--red)">Viewing as Admin</h1>
+{/if}
+
+<!-- trade request popup -->
+{#if tradingRequestData?.uuid}
+	<Toast align={false} class="fixed right-5 bg-(--black2) dark:bg-(--black2)">
+		{#snippet icon()}
+			<ExclamationCircleSolid class="h-6 w-6" />
+		{/snippet}
+
+		<span class="font-semibold text-gray-900 dark:text-white"
+			>Trade request from {tradingRequestData.person}</span
+		>
+		<div class="mt-3">
+			<div class="mb-2 text-sm font-normal"></div>
+			<div class="grid grid-cols-2 gap-2">
+				<Button
+					size="xs"
+					class="w-full"
+					color="green"
+					onclick={() => goto(`/user/${personData?.uuid}#trade`)}>View</Button
+				>
+			</div>
+		</div>
+	</Toast>
+{/if}
+
+<!-- button to visit person page -->
+{#if personData}
+	<div class="flex items-center justify-center gap-2">
+		<h1 class="text-2xl">Welcome {personData?.displayName}</h1>
+		<button class="button-primary" onclick={() => goto(`/user/${personData?.uuid}`)}
+			>View Person Page</button
+		>
 	</div>
-	{#if nextSlot}
-		<div class="flex flex-col items-center justify-center gap-2 border-l-2 border-(--white) pl-2">
-			<p>
-				Next Slot: {nextSlot.startLabel != ''
-					? nextSlot.startLabel
-					: msToTime(nextSlot.slotNumber)}-{nextSlot.endLabel != ''
-					? nextSlot.endLabel
-					: msToTime(nextSlot.endTimestamp)} in {timeToNextSlot}
-			</p>
-			{#if nextRole}
-				<p style="color: var({nextRole != Role.Open ? getColor(nextRole) : 'white'}">
-					Next Role: {nextRole}
+{/if}
+
+<!-- current slot / role  -->
+{#if visible || isAdmin}
+	<div class="m-auto mb-5 flex size-fit gap-2 rounded-xl bg-(--black2) p-5">
+		<div class="flex flex-col items-center justify-center gap-2">
+			<p>Current Slot: {currentSlot.label}</p>
+			{#if currentRole}
+				<p style="color: var({currentRole != Role.Open ? getColor(currentRole) : 'white'}">
+					Current Role: {currentRole}
 				</p>
 			{/if}
 		</div>
-	{/if}
-</div>
+		{#if nextSlot}
+			<div class="flex flex-col items-center justify-center gap-2 border-l-2 border-(--white) pl-2">
+				<p>
+					{#if nextSlot.startLabel != 'None'}
+						Next Slot: {nextSlot.startLabel != ''
+							? nextSlot.startLabel
+							: msToTime(nextSlot.slotNumber)}-{nextSlot.endLabel != ''
+							? nextSlot.endLabel
+							: msToTime(nextSlot.endTimestamp)} in {timeToNextSlot}
+					{:else}
+						Next Slot: None
+					{/if}
+				</p>
+				{#if nextRole}
+					<p style="color: var({nextRole != Role.Open ? getColor(nextRole) : 'white'}">
+						Next Role: {nextRole}
+					</p>
+				{/if}
+			</div>
+		{/if}
+	</div>
+{/if}
 
-{#if view == 'person'}
-	<div class="m-auto mb-10 size-fit overflow-x-scroll rounded-xl bg-(--black2) p-5">
+<!-- main schedule  -->
+{#if (visible || isAdmin) && view == 'person'}
+	<div class="m-auto mb-10 size-fit max-w-screen overflow-x-scroll rounded-xl bg-(--black2) p-5">
 		<table class="nunito">
 			<thead class="text-sm">
 				<tr>
@@ -184,10 +237,12 @@
 					<tr>
 						<td
 							class="p-2"
-							style="color: var({personName == person.name
+							style="color: var({personData?.displayName == person.name
 								? '--yellow'
-								: '--white'}); font-weight: {personName == person.name ? 900 : 400}"
-							>{person.name}</td
+								: '--white'}); font-weight: {personData?.displayName == person.name ? 900 : 400}"
+							onclick={() => {
+								if (isAdmin) goto(`/user/${person.uuid}`);
+							}}>{person.name}</td
 						>
 						{#each person.slots as slot}
 							{#if slot}
@@ -208,8 +263,10 @@
 			</tbody>
 		</table>
 	</div>
-{:else}
-	<div class="nunito flex size-fit flex-col items-center justify-around gap-5">
+{:else if (visible || isAdmin) && view == 'time'}
+	<div
+		class="nunito flex size-fit max-w-screen flex-col items-center justify-around gap-5 overflow-x-scroll"
+	>
 		{#each slots as slot}
 			<div class="flex w-[90%] justify-between gap-5 rounded-md bg-(--black2) p-5">
 				<div
@@ -232,7 +289,7 @@
 								)}); color: var({(role as Role) === Role.Strategy || (role as Role) === Role.Open
 									? '--white'
 									: '--black'});"
-								class="flex gap-1.5 rounded-md p-1"
+								class="flex flex-wrap gap-1.5 rounded-md p-1"
 							>
 								<p class="font-bold">{role}</p>
 								{#each roles[slot.slotNumber - 1][role as Role] as person}
@@ -245,27 +302,52 @@
 			</div>
 		{/each}
 	</div>
+{:else}
+	<div class="nunito flex size-full flex-col items-center justify-around gap-5 text-4xl font-bold">
+		<h1>Schedule not published D:</h1>
+	</div>
 {/if}
 
-<div
-	class="m-auto mt-10 flex h-fit w-[90%] flex-col gap-2 overflow-x-scroll rounded-xl bg-(--black2) p-5"
->
-	{#each schedule as person}
-		<div class="flex items-center gap-2 p-3">
-			<h1>{person.name}</h1>
-			{#each Object.keys(roles[0]) as role}
-				{#if calcRoleTime(role as Role, person.name) != '0s'}
-					<div
-						style="background-color: var({getColor(role as Role)}); color: var({(role as Role) ===
-							Role.Strategy || (role as Role) === Role.Open
-							? '--white'
-							: '--black'});"
-						class="nunito flex gap-1.5 rounded-md p-1 font-medium"
-					>
-						<p>{role}: {calcRoleTime(role as Role, person.name)}</p>
-					</div>
-				{/if}
-			{/each}
-		</div>
-	{/each}
-</div>
+<!-- time amounts -->
+{#if visible || isAdmin}
+	<div
+		class="m-auto mt-10 flex h-fit w-[90%] max-w-screen flex-col gap-2 overflow-x-scroll rounded-xl bg-(--black2) p-5"
+	>
+		{#each schedule as person}
+			<div class="flex items-center gap-2 p-3">
+				<h1>{person.name}</h1>
+				{#each Object.keys(roles[0]) as role}
+					{#if calcRoleTime(role as Role, person.name) != '0s'}
+						<div
+							style="background-color: var({getColor(role as Role)}); color: var({(role as Role) ===
+								Role.Strategy || (role as Role) === Role.Open
+								? '--white'
+								: '--black'});"
+							class="nunito flex gap-1.5 rounded-md p-1 font-medium"
+						>
+							<p>{role}: {calcRoleTime(role as Role, person.name)}</p>
+						</div>
+					{/if}
+				{/each}
+			</div>
+		{/each}
+	</div>
+{/if}
+
+<style>
+	.button-primary {
+		height: fit-content;
+		border: 1px solid var(--white);
+		border-radius: 10px;
+		background-color: var(--white);
+		padding: 0.5rem;
+		color: var(--black);
+		transition-property: color, background-color;
+		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+		transition-duration: 200ms;
+	}
+	.button-primary:hover {
+		background-color: var(--black2);
+		color: var(--white);
+	}
+</style>

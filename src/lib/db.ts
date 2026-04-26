@@ -1,4 +1,11 @@
-import { Role, RolePool, type PersonData, type personSchedule, type Preferences } from './types';
+import {
+	Role,
+	RolePool,
+	type PersonData,
+	type personSchedule,
+	type Preferences,
+	type slotData
+} from './types';
 import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 
@@ -17,6 +24,7 @@ export async function initDB() {
 			lastName TEXT,
 			displayName TEXT,
 			email TEXT,
+			phone INTEGER,
 			attendingEvent BOOLEAN,
 			attendingLoadIn BOOLEAN,
 			rolePool TEXT,
@@ -48,22 +56,32 @@ export async function initDB() {
 			endTimestamp LONG,
 			startLabel TEXT,
 			endLabel TEXT,
-			allowUpdate BOOLEAN
+			allowUpdate BOOLEAN,
+			doScouting BOOLEAN
 		)
 	`);
 
 	db.run(`
-		CREATE TABLE IF NOT EXISTS milestoneTimes (
-			name TEXT PRIMARY KEY,
-			startTimestamp LONG,
-			endTimestamp LONG
+		CREATE TABLE IF NOT EXISTS timingCfg (
+			key TEXT PRIMARY KEY,
+			value TEXT
 		)
 	`);
 
 	db.run(`
 		CREATE TABLE IF NOT EXISTS sessions (
 			session_id CHAR(36),
-			session_expire LONG
+			session_expire LONG,
+			session_identity TEXT
+		)
+	`);
+
+	db.run(`
+		CREATE TABLE IF NOT EXISTS tradeRequest (
+			requestUUID CHAR(36),
+			personInit TEXT,
+			personReceive TEXT,
+			slotID INTEGER
 		)
 	`);
 }
@@ -95,13 +113,14 @@ export async function getPeopleAtEvent(): Promise<PersonData[]> {
 export async function addPerson(data: { firstName: string; lastName: string; email: string }) {
 	const personUUID = Bun.randomUUIDv7();
 	await db
-		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
 		.run(
 			personUUID,
 			data.firstName,
 			data.lastName,
 			data.firstName,
 			data.email,
+			null,
 			false,
 			false,
 			RolePool.None,
@@ -109,6 +128,25 @@ export async function addPerson(data: { firstName: string; lastName: string; ema
 		);
 	await formatName(data.firstName, data.lastName);
 	return personUUID;
+}
+
+export async function updatePerson(data: PersonData) {
+	await db
+		.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+		.run(
+			data.uuid,
+			data.firstName,
+			data.lastName,
+			data.firstName,
+			data.email,
+			data.phone,
+			data.attendingEvent,
+			data.attendingLoadIn,
+			data.rolePool,
+			JSON.stringify(data.preferences)
+		);
+	await formatName(data.firstName, data.lastName);
+	return data.uuid;
 }
 
 export async function removePerson(personUUID: string) {
@@ -148,6 +186,16 @@ export async function getPerson(personUUID: string): Promise<PersonData | null> 
 	};
 }
 
+export async function getPersonFromEmail(email: string): Promise<PersonData | null> {
+	const res = db.prepare('SELECT * FROM people WHERE email = ?').get(email) as PersonData;
+	if (!res) return null;
+	return {
+		...res,
+		rolePool: res.rolePool as RolePool,
+		preferences: JSON.parse(res.preferences as unknown as string)
+	};
+}
+
 export async function updatePreferences(personUUID: string, preferences: Preferences) {
 	await setPersonStats(personUUID, true);
 	return db
@@ -160,7 +208,7 @@ export async function randomizePreferences() {
 	const people = await getPeople();
 	for (let person of people) {
 		updatePreferences(person.uuid, {
-			doPits: Math.floor(Math.random() * 6) as 0 | 1 | 2 | 3 | 4 | 5,
+			doPits: Math.random() > 0.5,
 			doMedia: Math.random() > 0.5,
 			doStrategy: Math.random() > 0.5,
 			doJournalism: Math.random() > 0.5
@@ -180,7 +228,7 @@ export async function importPreferences() {
 		let personData = people.find((v) => v.email === entry['Email Address']);
 		if (!personData) continue;
 		let preferences: Preferences = {
-			doPits: entry['Are you interested in being on pit crew?'] == 'Yes' ? 1 : 0,
+			doPits: entry['Are you interested in being on pit crew?'] == 'Yes' ? true : false,
 			doMedia: entry['What other roles are you interested in?'].includes('Media') ? true : false,
 			doJournalism: entry['What other roles are you interested in?'].includes('Journalism')
 				? true
@@ -221,9 +269,7 @@ export async function getSchedule() {
 }
 
 export async function getPersonSchedule(personUUID: string) {
-	return db
-		.prepare(`SELECT * FROM schedule WHERE personUUID = ?`)
-		.get(personUUID) as personSchedule;
+	return db.prepare(`SELECT * FROM schedule WHERE personUUID = ?`).get(personUUID);
 }
 
 export async function getCurrentSchedule() {
@@ -259,34 +305,19 @@ export async function getNamesInRole(role: Role, slotNum: number): Promise<strin
 	return Promise.all(names);
 }
 
-export async function setSlot(data: {
-	slotNumber: number;
-	startTimestamp: number;
-	endTimestamp: number;
-	startLabel: string;
-	endLabel: string;
-	allowUpdate: boolean;
-}) {
-	db.prepare('INSERT OR REPLACE INTO slots VALUES (?, ?, ?, ?, ?, ?)').run(
+export async function setSlot(data: slotData) {
+	db.prepare('INSERT OR REPLACE INTO slots VALUES (?, ?, ?, ?, ?, ?, ?)').run(
 		data.slotNumber,
 		data.startTimestamp,
 		data.endTimestamp,
 		data.startLabel,
 		data.endLabel,
-		data.allowUpdate
+		data.allowUpdate,
+		data.doScouting
 	);
 }
 
-export async function setSlots(
-	data: {
-		slotNumber: number;
-		startTimestamp: number;
-		endTimestamp: number;
-		startLabel: string;
-		endLabel: string;
-		allowUpdate: boolean;
-	}[]
-) {
+export async function setSlots(data: slotData[]) {
 	await clearSlots();
 	data.forEach((v) => {
 		setSlot(v);
@@ -294,44 +325,35 @@ export async function setSlots(
 }
 
 export async function getSlots() {
-	return db.prepare('SELECT * FROM slots').all() as {
-		slotNumber: number;
-		startTimestamp: number;
-		endTimestamp: number;
-		startLabel: string;
-		endLabel: string;
-		allowUpdate: boolean;
-	}[];
+	return db.prepare('SELECT * FROM slots').all() as slotData[];
 }
 
 export async function clearSlots() {
 	return db.prepare('DELETE FROM slots').run();
 }
 
-export async function getMilestones(): Promise<
-	{ name: string; startTimestamp: number; endTimestamp: number }[]
-> {
-	return db.prepare('SELECT * FROM milestoneTimes').all();
+export async function getCFG(): Promise<{ key: string; value: string }[]> {
+	return db.prepare('SELECT * FROM timingCfg').all();
 }
 
-export async function setMilestone(data: { name: string; start: number; end: number }) {
-	return db
-		.prepare('INSERT OR REPLACE INTO milestoneTimes VALUES (?, ?, ?)')
-		.run(data.name, data.start, data.end);
+export async function setCFG(data: { key: string; value: any }) {
+	return db.prepare('INSERT OR REPLACE INTO timingCfg VALUES (?, ?)').run(data.key, data.value);
 }
 
-export async function removeMilestone(name: string) {
-	return db.prepare('DELETE FROM milestoneTimes WHERE name = ?').run(name);
+export async function removeCFG(key: string) {
+	return db.prepare('DELETE FROM timingCfg WHERE key = ?').run(key);
 }
 
-export async function isValidSession(sessionID: string): Promise<boolean> {
+export async function isValidSession(sessionID: string, sessionIdentity: string): Promise<boolean> {
 	const res =
-		((await db
-			.prepare('SELECT session_expire FROM sessions WHERE session_id = ?')
-			.get(sessionID)) as { session_expire: number }) || null;
+		((await db.prepare('SELECT * FROM sessions WHERE session_id = ?').get(sessionID)) as {
+			session_expire: number;
+			session_identity: string;
+		}) || null;
 	if (!res) return false;
 	const expires = res.session_expire ?? null;
-	if (expires) {
+	const identity = res.session_identity ?? null;
+	if (expires && identity && identity == sessionIdentity) {
 		if (expires > Date.now()) return true;
 		else {
 			console.log('removing session');
@@ -341,15 +363,49 @@ export async function isValidSession(sessionID: string): Promise<boolean> {
 	} else return false;
 }
 
-export async function newSession(): Promise<string> {
+export async function identityFromSessionID(sessionID: string) {
+	const res = await db.prepare('SELECT * FROM sessions WHERE session_id = ?').get(sessionID);
+	return res?.session_identity ?? null;
+}
+
+export async function newSession(identity: string): Promise<string> {
 	const sessionID = Bun.randomUUIDv7();
 	const sessionExpire = Date.now() + 60 * 60 * 1000; // expires 1hr after creation
-	await db.prepare('INSERT INTO sessions VALUES (?, ?)').run(sessionID, sessionExpire);
+	await db.prepare('INSERT INTO sessions VALUES (?, ?, ?)').run(sessionID, sessionExpire, identity);
 	return sessionID;
 }
 
+export async function deleteSession(sessionID: string) {
+	await db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionID);
+}
+
 export async function clearSessions() {
+	console.log(`Clearing All Sessions ${new Date().toLocaleTimeString('en-US', { hour12: false })}`);
 	return db.prepare('DELETE FROM sessions').run();
+}
+
+export async function createTradeRequest(
+	personInit: string,
+	personReceive: string,
+	slotID: number
+) {
+	const uuid = Bun.randomUUIDv7();
+	await db
+		.prepare('INSERT INTO tradeRequest VALUES (?, ?, ?, ?)')
+		.run(uuid, personInit, personReceive, slotID);
+	return uuid;
+}
+
+export async function getTradeRequest(uuid: string) {
+	return await db.prepare('SELECT * FROM tradeRequest WHERE requestUUID = ?').get(uuid);
+}
+
+export async function getIncomingRequests(personReceive: string) {
+	return await db.prepare('SELECT * FROM tradeRequest WHERE personReceive = ?').all(personReceive);
+}
+
+export async function removeTradeRequest(uuid: string) {
+	return await db.prepare('DELETE FROM tradeRequest WHERE requestUUID = ?').run(uuid);
 }
 
 async function formatName(firstName: string, lastName: string) {
@@ -371,6 +427,7 @@ export async function msToSlot(ms: number) {
 	for (let current of slots) {
 		if (current.startTimestamp < ms && current.endTimestamp > ms) {
 			slot = current;
+			break;
 		}
 	}
 	if (!slot) return null;

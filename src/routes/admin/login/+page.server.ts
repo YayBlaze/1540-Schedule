@@ -5,7 +5,7 @@ import { admin_password } from '$env/static/private';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const sessionID = locals.sessionID;
-	if (sessionID && (await isValidSession(sessionID))) redirect(303, '/admin');
+	if (sessionID && (await isValidSession(sessionID, 'admin'))) redirect(303, '/admin');
 	let searchParams = url.searchParams;
 	let msg = searchParams.get('msg') ?? '';
 	let color = searchParams.get('color') ?? '#ee2c2c';
@@ -19,8 +19,8 @@ export const actions = {
 		let pass = data.get('pass')?.toString();
 		if (!pass) return fail(400, { auth: false, msg: 'Please provide a password' });
 		if (pass != admin_password) return fail(401, { auth: false, msg: 'Incorrect Password' });
-		const sessionID = await newSession();
-		cookies.set('session', sessionID, { path: '/' });
+		const sessionID = await newSession('admin');
+		cookies.set('adminSession', sessionID, { path: '/' });
 		redirect(303, '/admin');
 	}
 } satisfies Actions;

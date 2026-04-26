@@ -1,37 +1,24 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import type { PageProps } from './$types';
-
-	let { data }: PageProps = $props();
-	let people = $derived(data.people);
 </script>
 
 <nav class="mb-5 flex h-fit w-full items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<h1 class="text-4xl text-(--black)">Login</h1>
 	<button
-		onclick={() => goto('/')}
+		onclick={() => goto('/admin')}
 		class="rounded-lg border border-(--black) bg-(--black) p-2 text-(--white) transition duration-200 hover:bg-(--white) hover:text-(--black)"
-		>Return to Schedule</button
+		>Admin</button
 	>
 </nav>
 
-<form
-	action="?/login"
-	method="post"
-	class="m-auto mb-10 flex size-fit flex-col items-center justify-around gap-2 rounded-xl bg-(--black2) p-5 text-2xl"
->
-	<h1>Please select your name:</h1>
-	<select
-		name="personSelect"
-		class="h-fit w-[70%] rounded-md border border-(--grey) p-1 text-(--white)"
+<div class="mb-5 flex justify-center">
+	<button class="button-primary m-auto" onclick={() => goto('/auth/oauth')}
+		>Login with Veracross</button
 	>
-		{#each people as person}
-			{#if person.attendingEvent}
-				<option value={person.uuid}>{person.displayName}</option>
-			{/if}
-		{/each}
-	</select>
-	<button id="submit" class="button-primary">Submit</button>
+</div>
+
+<form action="?/guest" method="post" class="flex w-full justify-center">
+	<button class="button-secondary">Or continue as guest</button>
 </form>
 
 <style>
@@ -50,5 +37,21 @@
 	.button-primary:hover {
 		background-color: var(--black2);
 		color: var(--white);
+	}
+
+	.button-secondary {
+		height: fit-content;
+		border-radius: 10px;
+		background-color: #3c3c3c;
+		padding: 0.5rem;
+		color: var(--white);
+		font-size: 0.875rem;
+		transition-property: color, background-color;
+		transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+		transition-duration: 200ms;
+	}
+	.button-secondary:hover {
+		background-color: var(--white);
+		color: var(--black2);
 	}
 </style>

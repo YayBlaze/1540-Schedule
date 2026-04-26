@@ -3,11 +3,14 @@
 	import type { PageProps } from './$types';
 	import { RolePool } from '$lib/types';
 	import { team } from '$lib/config';
+	import { Toggle } from 'flowbite-svelte';
 	let { data }: PageProps = $props();
 
+	var visible = $derived(data.scheduleVisible);
+	var sendSlackUpdates = $derived(data.sendSlackUpdates);
 	var people = $derived(data.people);
 	var times = $derived(data.times);
-	var date = $derived(data.date);
+	var date = $derived(data.dateString);
 	var slots = $derived(data.slots);
 	var fromDB = $derived(data.fromDB);
 	// svelte-ignore state_referenced_locally
@@ -19,7 +22,8 @@
 			startTimestamp: 0,
 			endLabel: '',
 			endTimestamp: 0,
-			allowUpdate: true
+			allowUpdate: true,
+			doScouting: true
 		});
 	}
 	var { lunchStart, lunchEnd, dayStart, dayEnd } = $derived(times);
@@ -53,6 +57,19 @@
 	<div class="item flex flex-col gap-2">
 		<div class="flex items-center justify-between">
 			<div>
+				<h1 class="text-xl">Toggle visibility</h1>
+				<p class="pb-1 text-sm text-(--grey)">
+					Toggles tht state of the schedule between something everyone can see to only admins
+				</p>
+			</div>
+			<form action="?/toggleVisibility" method="post">
+				<button id="submit" class={visible ? 'button-green' : 'button-red'}
+					>{visible ? 'Visible' : 'Hidden'}</button
+				>
+			</form>
+		</div>
+		<div class="flex items-center justify-between">
+			<div>
 				<h1 class="text-xl">Generate Schedule</h1>
 				<p class="pb-1 text-sm text-(--red)">
 					Warning: This action will re-generate the schedule and slots for all people
@@ -69,7 +86,7 @@
 					Re-generate the slots without affecting the schedule
 				</p>
 			</div>
-			<form action="?/generate" method="post">
+			<form action="?/generateSlots" method="post">
 				<button class="button-primary" id="submit">Generate Slots</button>
 			</form>
 		</div>
@@ -95,6 +112,17 @@
 				<button class="button-primary" id="submit">Import People</button>
 			</form>
 		</div>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-xl">Toggle Slack Updates</h1>
+				<p class="pb-1 text-sm text-(--grey)">Toggles automatic slack messages when roles update</p>
+			</div>
+			<form action="?/toggleSlackUpdates" method="post">
+				<button id="submit" class={sendSlackUpdates ? 'button-green' : 'button-red'}
+					>{sendSlackUpdates ? 'On' : 'Off'}</button
+				>
+			</form>
+		</div>
 	</div>
 	<div class="m-auto flex w-[95%] justify-around gap-5">
 		<div class="item h-100">
@@ -106,27 +134,27 @@
 			<form
 				action="?/newPerson"
 				method="post"
-				class="flex h-fit w-full items-center justify-around pb-2"
+				class="flex h-fit w-full items-center justify-around gap-2 pb-2"
 			>
 				<input
 					type="text"
+					class="textInput"
 					name="firstName"
 					placeholder="First Name"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
 					bind:value={newFirstName}
 				/>
 				<input
 					type="text"
+					class="textInput"
 					name="lastName"
 					placeholder="Last Name"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
 					bind:value={newLastName}
 				/>
 				<input
 					type="text"
+					class="textInput"
 					name="email"
 					placeholder="Email"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
 					bind:value={newEmail}
 				/>
 				<button id="submit" class="button-primary">Add</button>
@@ -139,13 +167,13 @@
 						<p>{person.displayName}</p>
 						<div class="flex h-fit items-center justify-around gap-1">
 							<form action="?/updateStatus" method="post">
-								<input type="hidden" name="id" value={person.uuid} />
+								<input type="hidden" class="textInput" name="id" value={person.uuid} />
 								<button id="submit" class={person.attendingEvent ? 'button-green' : 'button-red'}>
 									{person.attendingEvent ? 'Attending' : 'Missing'}
 								</button>
 							</form>
 							<form action="?/deletePerson" method="post">
-								<input name="id" type="hidden" value={person.uuid} />
+								<input name="id" class="textInput" type="hidden" value={person.uuid} />
 								<button id="submit" class="button-destructive">Remove</button>
 							</form>
 						</div>
@@ -159,24 +187,18 @@
 			<form
 				action="?/assign"
 				method="post"
-				class="flex h-fit w-full items-center justify-around pb-2"
+				class="flex h-fit w-full items-center justify-around gap-2 pb-2"
 			>
-				<select
-					name="person"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
-				>
+				<select name="person" class="w-full">
 					{#each people as person}
 						{#if person.attendingEvent && (!person.rolePool || person.rolePool == RolePool.None)}
 							<option value={person.uuid}>{person.displayName}</option>
 						{/if}
 					{/each}
 				</select>
-				<select
-					name="role"
-					class="h-fit w-[40%] rounded-md border border-(--grey) p-1 text-(--white)"
-				>
-					<option value={RolePool.PitLead}>Pit Lead</option>
+				<select name="role" class="w-full">
 					<option value={RolePool.Drive}>Drive Team</option>
+					<option value={RolePool.PitLead}>Pit Lead</option>
 					<option value={RolePool.NO_Scouting}>No Scouting</option>
 					<option value={RolePool.ONLY_Strategy}>Strategy Only</option>
 					<option value={RolePool.TiaraJudge}>Tiara Judge</option>
@@ -194,7 +216,7 @@
 						>
 							<p>{person.displayName} -> {person.rolePool}</p>
 							<form action="?/deleteAssignment" method="post">
-								<input name="id" type="hidden" value={person.uuid} />
+								<input name="id" type="hidden" class="textInput" value={person.uuid} />
 								<button id="submit" class="button-destructive">Remove</button>
 							</form>
 						</div>
@@ -212,39 +234,40 @@
 				type="text"
 				name="date"
 				placeholder="Event Date"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
+				class="textInput"
+				style="color: var({fromDB.date ? '--yellow' : '--white'});"
 				bind:value={date}
 			/>
 			<input
 				type="text"
 				name="dayStart"
 				placeholder="Event Start"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
-				style="color: var({fromDB.event ? '--yellow' : '--white'});"
+				class="textInput"
+				style="color: var({fromDB.eventStart ? '--yellow' : '--white'});"
 				bind:value={dayStart}
 			/>
 			<input
 				type="text"
 				name="lunchStart"
 				placeholder="Lunch Start"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
-				style="color: var({fromDB.lunch ? '--yellow' : '--white'});"
+				class="textInput"
+				style="color: var({fromDB.lunchStart ? '--yellow' : '--white'});"
 				bind:value={lunchStart}
 			/>
 			<input
 				type="text"
 				name="lunchEnd"
 				placeholder="Lunch End"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
-				style="color: var({fromDB.lunch ? '--yellow' : '--white'});"
+				class="textInput"
+				style="color: var({fromDB.lunchEnd ? '--yellow' : '--white'});"
 				bind:value={lunchEnd}
 			/>
 			<input
 				type="text"
 				name="dayEnd"
 				placeholder="Event End"
-				class="h-fit w-[50%] rounded-md border border-(--grey) p-1 text-(--white)"
-				style="color: var({fromDB.event ? '--yellow' : '--white'});"
+				class="textInput"
+				style="color: var({fromDB.eventEnd ? '--yellow' : '--white'});"
 				bind:value={dayEnd}
 			/>
 			<button
@@ -266,48 +289,45 @@
 		<div class="flex w-full flex-wrap items-center gap-4">
 			{#each slotsToEdit as slot}
 				<form
-					class="flex h-73 w-[30%] flex-col items-center justify-around gap-2 rounded-2xl border border-(--white) p-2"
+					class="flex h-82 w-[30%] flex-col items-center justify-around gap-2 rounded-2xl border border-(--white) p-2"
 					method="post"
 					action="?/editSlot"
 				>
 					<h1>Slot {slot.slotNumber}</h1>
-					<input type="hidden" name="slotNum" value={slot.slotNumber} />
+					<input type="hidden" class="textInput" name="slotNum" value={slot.slotNumber} />
 					<input
 						type="text"
 						name="startLabel"
 						placeholder="Start Label"
-						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						class="textInput"
 						value={slot.startLabel}
 					/>
 					<input
 						type="datetime-local"
 						name="startTimestamp"
-						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						class="textInput"
 						value={toDatetimeLocal(slot.startTimestamp)}
 					/>
 					<input
 						type="text"
 						name="endLabel"
 						placeholder="End Label"
-						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						class="textInput"
 						value={slot.endLabel}
 					/>
 					<input
 						type="datetime-local"
 						name="endTimestamp"
-						class="h-fit w-[80%] rounded-md border border-(--grey) p-1"
+						class="textInput"
 						placeholder="End Timestamp"
 						value={toDatetimeLocal(slot.endTimestamp)}
 					/>
-					<div class="flex justify-center gap-2">
-						<input
-							type="checkbox"
-							name="allowUpdates"
-							id="allowUpdates"
-							checked={slot.allowUpdate}
-						/>
-						<label for="allowUpdates">Allow auto updates from nexus?</label>
-					</div>
+					<Toggle checked={slot.allowUpdate} size="small" color="green" class="nunito text-xl"
+						>Allow auto updates from nexus</Toggle
+					>
+					<Toggle checked={slot.doScouting} size="small" color="green" class="nunito text-xl"
+						>Assign scouting during slot</Toggle
+					>
 					<button class="button-primary" id="submit">Save</button>
 				</form>
 			{/each}
@@ -323,6 +343,16 @@
 		margin: auto;
 		border: 1px solid var(--white);
 		border-radius: 20px;
+	}
+
+	select,
+	.textInput {
+		height: fit-content;
+		border: 1px solid var(--grey);
+		border-radius: 0.375rem;
+		padding: 0.25rem;
+		color: var(--white);
+		background-color: #3c3c3c;
 	}
 
 	.button-primary {

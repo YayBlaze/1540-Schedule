@@ -1,11 +1,36 @@
-import { getPeople, getNamesInRole, getSchedule, getSlots, msToSlot, getPerson } from '$lib/db';
-import { Role } from '$lib/types';
+import {
+	getPeople,
+	getNamesInRole,
+	getSchedule,
+	getSlots,
+	msToSlot,
+	getPerson,
+	getCFG,
+	isValidSession,
+	identityFromSessionID,
+	getIncomingRequests
+} from '$lib/db';
+import { Role, type PersonData } from '$lib/types';
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, cookies }) => {
+	let sessionID = cookies.get('session');
+	if (!sessionID) return redirect(303, '/auth');
+	if (sessionID != 'guest') {
+		const identity = await identityFromSessionID(sessionID);
+		if (!(await isValidSession(sessionID, identity))) return redirect(303, '/logout');
+	}
+	let personUUID: string | null = await identityFromSessionID(sessionID);
+	const appCFG = await getCFG();
+	const scheduleVisible =
+		appCFG.find((v) => v.key === 'scheduleVisible')?.value == '0' ? false : true;
 	const scheduleRAW = await getSchedule();
 	const slots = await getSlots();
 	const people = await getPeople();
+
+	const adminSession = cookies.get('adminSession') ?? '';
+	const isAdmin = await isValidSession(adminSession, 'admin');
 
 	let searchParams = url.searchParams;
 	let view = searchParams.get('view') ?? 'person';
@@ -17,6 +42,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 
 	let schedule = scheduleRAW.map((row) => ({
 		name: peopleLookUp[row.personUUID],
+		uuid: row.personUUID,
 		slots: Object.keys(row)
 			.filter(
 				(key) =>
@@ -24,6 +50,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 			)
 			.map((key) => row[key as keyof typeof row] as Role)
 	}));
+	schedule.sort((a, b) => a.name.localeCompare(b.name));
 
 	let roles: Record<string, string[]>[] = [];
 	for (let slot of slots) {
@@ -51,34 +78,83 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 	let nextSlot = slots[currentSlot.num];
 	if (!nextSlot) {
 		let currentSlotDetailed = slots[currentSlot.num - 1];
-		nextSlot = {
-			slotNumber: currentSlot.num + 1,
-			startTimestamp: currentSlotDetailed.endTimestamp,
-			endTimestamp: currentSlotDetailed.endTimestamp,
-			startLabel: 'End of Day',
-			endLabel: '',
-			allowUpdate: true
-		};
+		if (!currentSlotDetailed)
+			nextSlot = {
+				slotNumber: currentSlot.num + 1,
+				startTimestamp: -1,
+				endTimestamp: -1,
+				startLabel: 'None',
+				endLabel: '',
+				allowUpdate: true,
+				doScouting: true
+			};
+		else {
+			nextSlot = {
+				slotNumber: currentSlot.num + 1,
+				startTimestamp: currentSlotDetailed.endTimestamp,
+				endTimestamp: currentSlotDetailed.endTimestamp,
+				startLabel: 'None',
+				endLabel: '',
+				allowUpdate: true,
+				doScouting: true
+			};
+		}
 	}
 
-	let personUUID = cookies.get('uuid');
 	let currentPerson: {
-		personName: string | null;
+		data: PersonData | null;
 		currentRole: Role | null;
 		nextRole: Role | null;
 	} = {
-		personName: null,
+		data: null,
 		currentRole: null,
 		nextRole: null
 	};
 	if (personUUID) {
-		let personName = (await getPerson(personUUID))?.displayName;
-		if (!personName) throw new Error('invalid personUUID');
-		let personSchedule = schedule.find((v) => v.name == personName);
+		let data = await getPerson(personUUID);
+		if (!data) {
+			cookies.delete('uuid', { path: '/' });
+			return {
+				scheduleVisible,
+				view,
+				schedule,
+				slots,
+				roles,
+				currentSlot,
+				nextSlot,
+				currentPerson
+			};
+		}
+		let personSchedule = schedule.find((v) => v.name == data.displayName);
 		let currentRole = personSchedule?.slots[currentSlot.num - 1] ?? null;
 		let nextRole = personSchedule?.slots[currentSlot.num] ?? null;
-		currentPerson = { personName, currentRole, nextRole };
+		currentPerson = { data, currentRole, nextRole };
 	}
 
-	return { view, schedule, slots, roles, currentSlot, nextSlot, currentPerson };
+	let tradeRequestData = {
+		uuid: null,
+		person: null
+	};
+	if (personUUID) {
+		const receivingRequests: any[] = await getIncomingRequests(personUUID);
+		if (receivingRequests && receivingRequests.length > 0) {
+			tradeRequestData = {
+				uuid: receivingRequests[0].requestUUID,
+				person: peopleLookUp[receivingRequests[0].personInit]
+			};
+		}
+	}
+
+	return {
+		scheduleVisible,
+		isAdmin,
+		view,
+		schedule,
+		slots,
+		roles,
+		currentSlot,
+		nextSlot,
+		currentPerson,
+		tradeRequestData
+	};
 };
