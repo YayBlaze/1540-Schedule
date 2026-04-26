@@ -258,6 +258,7 @@ export async function changePersonStatus(personUUID: string) {
 }
 
 export async function setPersonSchedule(personUUID: string, schedule: (Role | null)[]) {
+	schedule = [...schedule, ...Array(Math.max(0, 11 - schedule.length)).fill(null)]; // adds null to the end of schedule to ensure it always has 11 roles
 	return db
 		.prepare(`INSERT OR REPLACE INTO schedule VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 		.run(personUUID, ...schedule);
@@ -439,4 +440,21 @@ export async function msToSlot(ms: number) {
 			? `${slot.startLabel}-${slot.endLabel}`
 			: `${msToTime(slot.startTimestamp)}-${msToTime(slot.endTimestamp)}`;
 	return { num: slot.slotNumber, label };
+}
+
+export function msToRelative(ms: number): string {
+	let seconds = ms / 1000;
+	let days = Math.floor(seconds / (24 * 3600));
+	seconds = seconds % (24 * 3600);
+	let hour = Math.floor(seconds / 3600);
+	seconds %= 3600;
+	let minutes = Math.floor(seconds / 60);
+	seconds %= 60;
+
+	let string = Math.round(seconds) + 's';
+	if (minutes != 0) string = Math.round(minutes) + 'mins';
+	if (hour != 0) string = Math.round(hour) + 'hrs, ' + string;
+	if (days != 0) string = '>24hrs';
+
+	return string;
 }

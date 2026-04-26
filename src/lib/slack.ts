@@ -1,22 +1,5 @@
 import { slackBotToken } from '$env/static/private';
-import { getCFG, getPerson, getPersonSchedule, getSlots, msToSlot } from './db';
-
-function msToRelative(ms: number): string {
-	let seconds = ms / 1000;
-	let days = Math.floor(seconds / (24 * 3600));
-	seconds = seconds % (24 * 3600);
-	let hour = Math.floor(seconds / 3600);
-	seconds %= 3600;
-	let minutes = Math.floor(seconds / 60);
-	seconds %= 60;
-
-	let string = Math.round(seconds) + 's';
-	if (minutes != 0) string = Math.round(minutes) + 'mins';
-	if (hour != 0) string = Math.round(hour) + 'hrs, ' + string;
-	if (days != 0) string = '>24hrs';
-
-	return string;
-}
+import { getCFG, getPerson, getPersonSchedule, getSlots, msToRelative, msToSlot } from './db';
 
 export async function sendSlackText(channelID: string, message: string) {
 	const appCFG = await getCFG();

@@ -5,6 +5,7 @@
 	import type { PageProps } from './$types';
 	import { Role, RolePool, type PersonData } from '$lib/types';
 	import { CheckCircleOutline } from 'flowbite-svelte-icons';
+	import { msToRelative } from '$lib/db';
 
 	let { data }: PageProps = $props();
 	let people = $derived(data.people);
@@ -78,23 +79,6 @@
 			default:
 				return '--black';
 		}
-	}
-
-	function msToRelative(ms: number): string {
-		let seconds = ms / 1000;
-		let days = Math.floor(seconds / (24 * 3600));
-		seconds = seconds % (24 * 3600);
-		let hour = Math.floor(seconds / 3600);
-		seconds %= 3600;
-		let minutes = Math.floor(seconds / 60);
-		seconds %= 60;
-
-		let string = Math.round(seconds) + 's';
-		if (minutes != 0) string = Math.round(minutes) + 'mins';
-		if (hour != 0) string = Math.round(hour) + 'hrs, ' + string;
-		if (days != 0) string = '>24hrs';
-
-		return string;
 	}
 
 	function calcRoleTime(role: Role, name: string) {
