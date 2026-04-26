@@ -6,7 +6,6 @@
 	import { team } from '$lib/config';
 	import { Button, Toast } from 'flowbite-svelte';
 	import { ExclamationCircleSolid } from 'flowbite-svelte-icons';
-	import { msToRelative } from '$lib/db';
 
 	let { data }: PageProps = $props();
 
@@ -53,6 +52,23 @@
 			? new Date(ms).toLocaleTimeString('en-US', { hour12: false, timeStyle: 'short' })
 			: 'Never';
 	};
+
+	export function msToRelative(ms: number): string {
+		let seconds = ms / 1000;
+		let days = Math.floor(seconds / (24 * 3600));
+		seconds = seconds % (24 * 3600);
+		let hour = Math.floor(seconds / 3600);
+		seconds %= 3600;
+		let minutes = Math.floor(seconds / 60);
+		seconds %= 60;
+
+		let string = Math.round(seconds) + 's';
+		if (minutes != 0) string = Math.round(minutes) + 'mins';
+		if (hour != 0) string = Math.round(hour) + 'hrs, ' + string;
+		if (days != 0) string = '>24hrs';
+
+		return string;
+	}
 
 	function calcRoleTime(role: Role, name: string) {
 		const personSchedule = schedule.find((v) => v.name == name);

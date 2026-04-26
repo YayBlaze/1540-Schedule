@@ -2,6 +2,7 @@ import {
 	clearSchedule,
 	clearSlots,
 	getPeopleAtEvent,
+	getPersonSchedule,
 	getSlots,
 	msToRelative,
 	setPersonSchedule,
@@ -18,21 +19,24 @@ import {
 } from '$lib/nexus';
 import { Role, RolePool, type slotData } from '$lib/types';
 
-export async function generateSchedule() {
+export async function generateSchedule(attempts?: number) {
+	attempts ? (attempts = attempts) : (attempts = 0);
 	await clearSchedule();
 	const people = (await getPeopleAtEvent())
-		.filter((p) => p.attendingEvent)
+		.filter(
+			(p) =>
+				p.rolePool != RolePool.Drive &&
+				p.rolePool !== RolePool.PitLead &&
+				p.rolePool != RolePool.ONLY_Strategy
+		)
+		.map((p) => {
+			return {
+				pitTime: 0,
+				...p
+			};
+		})
 		.sort(() => Math.random() - 0.5);
-	let slots = (await getSlots()).map((v) => {
-		return {
-			numPits: 0,
-			numScouting: 0,
-			numStrategy: 0,
-			numJournalism: 0,
-			numMedia: 0,
-			...v
-		};
-	});
+	let slots = await getSlots();
 
 	const roleNumbers = {
 		scouting: 6,
@@ -43,58 +47,78 @@ export async function generateSchedule() {
 	};
 
 	const totalTime = slots.reduce((sum, slot) => sum + slot.endTimestamp - slot.startTimestamp, 0);
-	const averagePitTime =
+	const goalAveragePitTime =
 		(totalTime * roleNumbers.pits) / people.filter((p) => p.preferences.doPits).length;
-	const averageScoutingTime = (totalTime * roleNumbers.scouting) / people.length;
-	const tolerance = 60 * 60 * 1000; // the amount of ms a person's pits/scouting time can be away from the average
+	const goalAverageScoutingTime = (totalTime * roleNumbers.scouting) / people.length;
+	const toleranceMinMax = 60 * 60 * 1000; // the amount of ms a person's pits/scouting time can be away from the goal
+	const toleranceAvg = 20 * 60 * 1000; // the amount of ms the average pits/scouting time can be away from the goal
 
-	for (const person of people) {
-		console.log('Doing', person.displayName);
-		let schedule: Role[] = new Array(slots.length).fill(Role.Open);
-		switch (person.rolePool) {
-			case RolePool.Drive:
-				schedule.fill(Role.Drive);
-			case RolePool.PitLead:
-				schedule.fill(Role.PitLead);
-			case RolePool.ONLY_Strategy:
-				schedule.fill(Role.Strategy);
-			default: {
-				// decide pits
-				let attempts = 0;
-				while (true) {
-					if (!person.preferences.doPits) break;
-					slots.sort(() => Math.random() - 0.5);
-					let pitTime = 0;
-					let selectedSlots = [];
-					for (let i = 0; i < 3; i++) {
-						if (slots[i].numPits >= roleNumbers.pits) continue;
-						pitTime += slots[i].endTimestamp - slots[i].startTimestamp;
-						selectedSlots.push(slots[i]);
-					}
-					if (Math.abs(averagePitTime - pitTime) <= tolerance || attempts > 10) {
-						selectedSlots.forEach((slot) => {
-							slot.numPits++;
-							schedule[slot.slotNumber - 1] = Role.Pits;
-						});
-						break;
-					}
-					console.log(
-						'Pit Time: ',
-						msToRelative(pitTime),
-						'Goal: ',
-						msToRelative(averagePitTime),
-						'Tolerance: ',
-						msToRelative(tolerance),
-						'Difference: ',
-						msToRelative(pitTime - averagePitTime)
-					);
-					attempts++;
-				}
-			}
+	let realPitTimes: number[] = [];
+	let realScoutingTimes: number[] = [];
+
+	// init schedules
+	people.forEach((person) => setPersonSchedule(person.uuid, new Array(slots.length).fill(null)));
+	(await getPeopleAtEvent()).forEach((person) => {
+		if (person.rolePool === RolePool.Drive) {
+			setPersonSchedule(person.uuid, new Array(slots.length).fill(Role.Drive));
+		} else if (person.rolePool === RolePool.PitLead) {
+			setPersonSchedule(person.uuid, new Array(slots.length).fill(Role.PitLead));
+		} else if (person.rolePool === RolePool.ONLY_Strategy) {
+			setPersonSchedule(person.uuid, new Array(slots.length).fill(Role.Strategy));
 		}
-		console.log('Setting Schedule');
-		setPersonSchedule(person.uuid, schedule);
-		console.log('Done');
+	});
+
+	for (const slot of slots) {
+		const i = slot.slotNumber - 1;
+		people.sort(() => Math.random() - 0.5);
+
+		//assign pits
+		for (let j = 0; j < 3; j++) {
+			const person = people[Math.floor(Math.random() * people.length)];
+			let schedule = Object.values(await getPersonSchedule(person.uuid)).slice(1) as Role[];
+			if (!person.preferences.doPits) {
+				j--;
+				continue;
+			}
+			schedule[i] = Role.Pits;
+			setPersonSchedule(person.uuid, schedule);
+			person.pitTime += slot.endTimestamp - slot.startTimestamp;
+		}
+
+		//finish by filling open
+		for (const person of people) {
+			let schedule = Object.values(await getPersonSchedule(person.uuid)).slice(1) as Role[];
+			if (schedule[i] == null) schedule[i] = Role.Open;
+			setPersonSchedule(person.uuid, schedule);
+		}
+	}
+
+	people.forEach((person) => {
+		if (person.preferences.doPits) realPitTimes.push(person.pitTime);
+	});
+
+	console.log(
+		'average pit time',
+		msToRelative(realPitTimes.reduce((a, b) => a + b, 0) / realPitTimes.length),
+		'max pit time',
+		msToRelative(Math.max(...realPitTimes)),
+		'min pit time',
+		msToRelative(Math.min(...realPitTimes))
+	);
+	if (
+		Math.abs(Math.max(...realPitTimes) - goalAveragePitTime) > toleranceMinMax ||
+		Math.abs(Math.min(...realPitTimes) - goalAveragePitTime) > toleranceMinMax ||
+		Math.abs(realPitTimes.reduce((a, b) => a + b, 0) / realPitTimes.length - goalAveragePitTime) >
+			toleranceAvg
+	) {
+		if (attempts >= 50) {
+			console.log(`attempt ${attempts} failed, giving up`);
+			return;
+		}
+		console.log(`attempt ${attempts} failed, retrying...`);
+		await generateSchedule(attempts + 1);
+	} else {
+		console.log(`attempt ${attempts} succeeded!`);
 	}
 }
 
