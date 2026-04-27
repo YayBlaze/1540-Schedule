@@ -72,7 +72,7 @@
 			<div>
 				<h1 class="text-xl">Generate Schedule</h1>
 				<p class="pb-1 text-sm text-(--red)">
-					Warning: This action will re-generate the schedule and slots for all people
+					Warning: This action will re-generate the schedule for all people
 				</p>
 			</div>
 			<form action="?/generate" method="post">
