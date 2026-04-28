@@ -1,8 +1,10 @@
 import { redirect, type RequestHandler } from '@sveltejs/kit';
-import { veracross, AUTH_URL } from '$lib/oauth';
-import { generateState } from 'arctic';
+import { generateState, OAuth2Client } from 'arctic';
+import { oAuthCallbackURL, oAuthClientID, oAuthClientSecret } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ cookies }) => {
+	const veracross = new OAuth2Client(oAuthClientID, oAuthClientSecret, oAuthCallbackURL);
+	const AUTH_URL = 'https://accounts.veracross.com/catlin/oauth/authorize';
 	const state = generateState();
 
 	const url = veracross.createAuthorizationURL(AUTH_URL, state, ['sso']);

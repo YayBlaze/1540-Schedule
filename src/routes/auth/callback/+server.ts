@@ -1,9 +1,10 @@
 import { oAuthCallbackURL, oAuthClientID, oAuthClientSecret } from '$env/static/private';
-import { TOKEN_URL, USR_INFO_URL } from '$lib/oauth';
 import { getPersonFromEmail, newSession } from '$lib/db';
 import { redirect, type RequestHandler } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
+	const TOKEN_URL = 'https://accounts.veracross.com/catlin/oauth/token';
+	const USR_INFO_URL = 'https://accounts.veracross.com/catlin/oauth/userinfo';
 	const code = url.searchParams.get('code');
 	const state = url.searchParams.get('state');
 

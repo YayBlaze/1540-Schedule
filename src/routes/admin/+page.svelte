@@ -44,6 +44,7 @@
 	}
 </script>
 
+<!-- top nav -->
 <nav class="flex h-fit w-full items-center justify-between bg-(--white) p-2 pr-5 pl-5">
 	<h1 class="text-4xl text-(--black)">{team} Admin</h1>
 	<button
@@ -54,6 +55,7 @@
 </nav>
 
 <div class="flex w-full flex-col justify-around gap-5 p-3">
+	<!-- main dashboard -->
 	<div class="item flex flex-col gap-2">
 		<div class="flex items-center justify-between">
 			<div>
@@ -125,6 +127,7 @@
 		</div>
 	</div>
 	<div class="m-auto flex w-[95%] justify-around gap-5">
+		<!-- edit people -->
 		<div class="item h-100">
 			<h1 class="text-xl">People</h1>
 			<p class="text-md pb-1 text-(--grey)">
@@ -181,6 +184,8 @@
 				{/each}
 			</div>
 		</div>
+
+		<!-- edit role pools -->
 		<div class="item h-100">
 			<h1 class="text-xl">People to Roles</h1>
 			<p class="text-md pb-1 text-(--grey)">Assign people to different role pools</p>
@@ -226,6 +231,7 @@
 		</div>
 	</div>
 
+	<!-- edit comp settings -->
 	<div class="item">
 		<h1 class="text-xl">Competition Settings</h1>
 		<p class="text-md pb-1 text-(--grey)">Set event day timing windows and lunch breaks</p>
@@ -280,6 +286,7 @@
 		</form>
 	</div>
 
+	<!-- edit slots -->
 	<div class="item">
 		<h1 class="text-xl">Edit time slots</h1>
 		<p class="text-md pb-1 text-(--grey)">Set label and timestamps of the time slots</p>
@@ -322,12 +329,14 @@
 						placeholder="End Timestamp"
 						value={toDatetimeLocal(slot.endTimestamp)}
 					/>
-					<Toggle checked={slot.allowUpdate} size="small" color="green" class="nunito text-xl"
+					<Toggle bind:checked={slot.allowUpdate} size="small" color="green" class="nunito text-xl"
 						>Allow auto updates from nexus</Toggle
 					>
-					<Toggle checked={slot.doScouting} size="small" color="green" class="nunito text-xl"
+					<Toggle bind:checked={slot.doScouting} size="small" color="green" class="nunito text-xl"
 						>Assign scouting during slot</Toggle
 					>
+					<input type="hidden" name="allowUpdates" bind:value={slot.allowUpdate} />
+					<input type="hidden" name="doScouting" bind:value={slot.doScouting} />
 					<button class="button-primary" id="submit">Save</button>
 				</form>
 			{/each}
