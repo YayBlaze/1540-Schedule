@@ -5,7 +5,6 @@ import {
 	getPeopleAtEvent,
 	getPersonSchedule,
 	getSlots,
-	msToRelative,
 	setPersonSchedule,
 	setSlot
 } from '$lib/db';
@@ -70,10 +69,24 @@ export async function generateSchedule() {
 	);
 
 	await generateRole(
-		people.filter((p) => p.rolePool != RolePool.NO_Scouting),
+		people.filter((p) => p.preferences.doStrategy),
 		slots,
-		roleNumbers.scouting,
-		Role.Scouting
+		roleNumbers.strategy,
+		Role.Strategy
+	);
+
+	await generateRole(
+		people.filter((p) => p.preferences.doMedia),
+		slots,
+		roleNumbers.media,
+		Role.Media
+	);
+
+	await generateRole(
+		people.filter((p) => p.preferences.doJournalism),
+		slots,
+		roleNumbers.journalism,
+		Role.Journalism
 	);
 }
 
@@ -83,7 +96,6 @@ async function generateRole(
 	numPeoplePerSlot: number,
 	role: Role
 ) {
-	console.log(`doing ${role}`);
 	const slots = slotsRaw.map((slot) => {
 		return {
 			peopleInRole: 0,
@@ -98,12 +110,13 @@ async function generateRole(
 	);
 
 	people.forEach((p) => (p.timeInRole = 0));
-	console.log(avgBlocks, sections.length, secSize);
 
 	let excessBlocks = [];
 	for (const section of sections) {
-		people.sort(() => Math.random() - 0.5);
-		people.sort((a, b) => a.timeInRole - b.timeInRole);
+		people.sort((a, b) => {
+			if (a.timeInRole == b.timeInRole) return b.timeInRole - a.timeInRole;
+			else return Math.random() - 0.5;
+		});
 		let i = 0;
 		for (const slot of section) {
 			const schedules = await Promise.all(people.map((p) => getPersonSchedule(p.uuid)));
@@ -128,25 +141,22 @@ async function generateRole(
 	}
 
 	let i = 0;
-	people.sort((a, b) => a.timeInRole - b.timeInRole);
 	for (const slot of excessBlocks) {
 		const schedules = await Promise.all(people.map((p) => getPersonSchedule(p.uuid)));
-		let availablePeople = people.filter(
-			(p, i) => schedules[i][`slot${slot.slotNumber}`] === Role.Open
-		);
+		let availablePeople = people
+			.filter((p, i) => schedules[i][`slot${slot.slotNumber}`] === Role.Open)
+			.sort((a, b) => {
+				if (a.timeInRole == b.timeInRole) return b.timeInRole - a.timeInRole;
+				else return Math.random() - 0.5;
+			});
+		availablePeople.forEach((p) => console.log(p.displayName));
 		for (let j = i; j < i + numPeoplePerSlot - slot.peopleInRole; j++) {
-			if (j >= availablePeople.length) {
-				availablePeople.sort((a, b) => a.timeInRole - b.timeInRole);
-				i = Math.max(0, j - i - slot.peopleInRole);
-				j = i;
-				continue;
-			}
-			let schedule = Object.values(await getPersonSchedule(availablePeople[j].uuid)).slice(
-				1
-			) as Role[];
+			let person = availablePeople.pop();
+			if (!person) break;
+			let schedule = Object.values(await getPersonSchedule(person.uuid)).slice(1) as Role[];
 			schedule[slot.slotNumber - 1] = role;
-			setPersonSchedule(availablePeople[j].uuid, schedule);
-			availablePeople[j].timeInRole += slot.endTimestamp - slot.startTimestamp;
+			setPersonSchedule(person.uuid, schedule);
+			person.timeInRole += slot.endTimestamp - slot.startTimestamp;
 		}
 		i += numPeoplePerSlot;
 	}

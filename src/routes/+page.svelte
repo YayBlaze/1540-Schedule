@@ -315,7 +315,13 @@
 	>
 		{#each schedule as person}
 			<div class="flex items-center gap-2 p-3">
-				<h1>{person.name}</h1>
+				<h1
+					style="color: var({personData?.displayName == person.name
+						? '--yellow'
+						: '--white'}); font-weight: {personData?.displayName == person.name ? 900 : 400}"
+				>
+					{person.name}
+				</h1>
 				{#each Object.keys(roles[0]) as role}
 					{#if calcRoleTime(role as Role, person.name) != '0s'}
 						<div
