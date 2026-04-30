@@ -11,7 +11,8 @@ import {
 	setSlots,
 	updateRolePool,
 	importPeople,
-	getCFG
+	getCFG,
+	removeSlot
 } from '$lib/db';
 import { fail, type Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
@@ -167,6 +168,10 @@ export const actions = {
 		const doScouting = data.get('doScouting')?.toString() === 'true';
 		if (!slotString || !startTimeString || !endTimeString) return fail(400);
 		let slotNumber = parseInt(slotString);
+		if (startLabel == 'remove' || endLabel == 'remove') {
+			console.log('remove!');
+			return await removeSlot(slotNumber);
+		}
 		let startTimestamp = new Date(startTimeString).getTime();
 		let endTimestamp = new Date(endTimeString).getTime();
 		await setSlot({

@@ -329,6 +329,16 @@ export async function getSlots() {
 	return db.prepare('SELECT * FROM slots').all() as slotData[];
 }
 
+export async function removeSlot(slotNumber: number) {
+	let slots = await getSlots();
+	slots = slots
+		.filter((slot) => slot.slotNumber !== slotNumber)
+		.map((slot) =>
+			slot.slotNumber > slotNumber ? { ...slot, slotNumber: slot.slotNumber - 1 } : slot
+		);
+	await setSlots(slots);
+}
+
 export async function clearSlots() {
 	return db.prepare('DELETE FROM slots').run();
 }

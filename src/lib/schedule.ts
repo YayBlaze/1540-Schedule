@@ -107,7 +107,7 @@ async function generateRole(
 			...slot
 		};
 	});
-	const avgBlocks = Math.floor((slots.length * numPeoplePerSlot) / people.length);
+	const avgBlocks = Math.max(Math.floor((slots.length * numPeoplePerSlot) / people.length), 1);
 
 	const secSize = Math.ceil(slots.length / avgBlocks);
 	const sections = Array.from({ length: avgBlocks }, (_, i) =>
@@ -287,6 +287,7 @@ export async function generateSlotsNexus() {
 	}
 }
 export async function generateSlotsDummy() {
+	console.log('Generating Dummy...');
 	await clearSlots();
 	const eventTimes = await getEventTimes();
 	let startTimestamp = eventTimes.dayStart.time;
