@@ -6,8 +6,11 @@ export const POST: RequestHandler = async ({ request }) => {
 	const data = await request.json();
 	const personReceive = await getPerson(data.traderReceive);
 	const personInit = await getPerson(data.traderInit);
-	if (!personReceive || !personInit) throw new Error('invalid user UUID');
-	await createTradeRequest(data.tradeInit, data.traderReceive, data.slot);
+	if (!personReceive || !personInit)
+		throw new Error(
+			`invalid user UUID:\npersonReceive: ${personReceive?.uuid}\npersonInit: ${personInit?.uuid}`
+		);
+	await createTradeRequest(personInit.uuid, personReceive.uuid, data.slot);
 	const receiveSlackUserID = await getSlackUserFromEmail(personReceive.email);
 	await sendSlackText(
 		receiveSlackUserID.user.id,

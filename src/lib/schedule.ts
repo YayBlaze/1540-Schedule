@@ -20,7 +20,6 @@ import {
 import { Role, RolePool, type slotData } from '$lib/types';
 
 export async function generateSchedule() {
-	console.log('--- Starting Schedule Generation ---');
 	await clearSchedule();
 	const people = (await getPeopleAtEvent())
 		.filter(
@@ -39,7 +38,6 @@ export async function generateSchedule() {
 	let slots = (await getSlots()).sort(
 		(a, b) => a.endTimestamp - a.startTimestamp - (b.endTimestamp - b.startTimestamp)
 	);
-	console.log(`There are ${people.length} people with ${slots.length} slots`);
 
 	const roleNumbers = {
 		scouting: 6,
@@ -91,7 +89,6 @@ export async function generateSchedule() {
 		roleNumbers.journalism,
 		Role.Journalism
 	);
-	console.log('--- Finished Schedule Generation ---');
 }
 
 async function generateRole(
@@ -100,7 +97,7 @@ async function generateRole(
 	numPeoplePerSlot: number,
 	role: Role
 ) {
-	console.log(`\nFilling ${role} with ${people.length} people`);
+	if (people.length < 1) return;
 	const slots = slotsRaw.map((slot) => {
 		return {
 			peopleInRole: 0,
@@ -113,7 +110,6 @@ async function generateRole(
 	const sections = Array.from({ length: avgBlocks }, (_, i) =>
 		slots.slice(i * secSize, (i + 1) * secSize)
 	);
-	console.log(`Average base blocks: ${avgBlocks}`);
 
 	people.forEach((p) => (p.timeInRole = 0));
 
@@ -146,7 +142,6 @@ async function generateRole(
 		}
 	}
 
-	console.log(`Has ${excessBlocks.length} excess blocks, now filling`);
 	let i = 0;
 	excessBlocks.sort(() => Math.random() - 0.5);
 	for (const slot of excessBlocks) {
@@ -157,9 +152,6 @@ async function generateRole(
 				if (a.timeInRole == b.timeInRole) return b.timeInRole - a.timeInRole;
 				else return Math.random() - 0.5;
 			});
-		console.log(
-			`Slot ${slot.slotNumber} needs ${numPeoplePerSlot - slot.peopleInRole} people and has ${availablePeople.length} available people.`
-		);
 		for (let j = i; j < i + numPeoplePerSlot - slot.peopleInRole; j++) {
 			let person = availablePeople.pop();
 			if (!person) break;
@@ -170,12 +162,6 @@ async function generateRole(
 		}
 		i += numPeoplePerSlot;
 	}
-	console.log(
-		`Finished ${role}:\n
-		Avg Time: ${msToRelative(people.reduce((sum, p) => (sum += p.timeInRole), 0) / people.length)}\n
-		Max Time: ${msToRelative(Math.max(...people.map((p) => p.timeInRole)))}\n
-		Min Time: ${msToRelative(Math.min(...people.map((p) => p.timeInRole)))}`
-	);
 }
 
 export async function updateSlotTiming() {

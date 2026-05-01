@@ -122,7 +122,7 @@
 		const res = await fetch('/api/submitTrade', {
 			method: 'POST',
 			body: JSON.stringify({
-				tradeInit: personData.uuid,
+				traderInit: personData.uuid,
 				traderReceive: tradingPerson?.uuid,
 				slot: tradingSlot?.slotNumber
 			})
