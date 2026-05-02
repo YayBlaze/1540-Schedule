@@ -45,7 +45,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	const username = user.preferred_username;
 	if (username === 'forbesk@catlin.edu') redirect(303, '/auth?/guest');
 	const person = await getPersonFromEmail(username);
-	if (!person) return new Response('Invalid user', { status: 400 });
+	if (!person) return redirect(303, '/auth?msg=User not in our database&color=red');
 
 	const sessionID = await newSession(person.uuid);
 	cookies.set('session', sessionID, { path: '/', maxAge: 60 * 60 * 1000 });

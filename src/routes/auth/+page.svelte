@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import type { PageProps } from './$types';
+	let { data }: PageProps = $props();
+	let msg = $derived(data.msg);
+	let color = $derived(data.color);
 </script>
 
 <nav class="mb-5 flex h-fit w-full items-center justify-between bg-(--white) p-2 pr-5 pl-5">
@@ -10,6 +14,8 @@
 		>Admin</button
 	>
 </nav>
+
+<p class="text-[1.5rem]" style="color: var(--{color})" id="msg">{msg}</p>
 
 <div class="mb-5 flex justify-center">
 	<button class="button-primary m-auto" onclick={() => goto('/auth/oauth')}
